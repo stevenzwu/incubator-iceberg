@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -31,6 +32,7 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -41,6 +43,7 @@ import org.apache.iceberg.flink.RowDataWrapper;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorFactory;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
+import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.util.StructLikeSet;
 import org.junit.ClassRule;
 import org.junit.rules.TemporaryFolder;
@@ -68,11 +71,13 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
     final Schema projected = testTable.schema().select(columns);
     final RowType rowType = FlinkSchemaUtil.convert(projected);
 
+    Map<String, String> properties = Maps.newHashMap();
+    properties.put(CatalogProperties.WAREHOUSE_LOCATION, hiveConf.get(HiveConf.ConfVars.METASTOREWAREHOUSE.varname));
+    properties.put(CatalogProperties.HIVE_URI, hiveConf.get(HiveConf.ConfVars.METASTOREURIS.varname));
+    properties.put(CatalogProperties.HIVE_CLIENT_POOL_SIZE,
+        Integer.toString(hiveConf.getInt("iceberg.hive.client-pool-size", 5)));
     final CatalogLoader hiveCatalogLoader = CatalogLoader.hive(catalog.name(),
-        hiveConf,
-        hiveConf.get(HiveConf.ConfVars.METASTOREURIS.varname),
-        hiveConf.get(HiveConf.ConfVars.METASTOREWAREHOUSE.varname),
-        hiveConf.getInt("iceberg.hive.client-pool-size", 5));
+        hiveConf, properties);
 
     try (TableLoader tableLoader = TableLoader.fromCatalog(
         hiveCatalogLoader, TableIdentifier.of(databaseName, tableName))) {
