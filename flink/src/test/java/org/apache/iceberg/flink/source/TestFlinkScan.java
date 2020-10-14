@@ -108,40 +108,10 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     catalog = new HadoopCatalog(conf, warehouse);
   }
 
-  private List<Row> runWithProjection(String... projected) throws IOException {
-    TableSchema.Builder builder = TableSchema.builder();
-    TableSchema schema = FlinkSchemaUtil.toSchema(FlinkSchemaUtil.convert(
-        catalog.loadTable(TableIdentifier.of("default", "t")).schema()));
-    for (String field : projected) {
-      TableColumn column = schema.getTableColumn(field).get();
-      builder.field(column.getName(), column.getType());
-    }
-    return run(FlinkSource.forRowData().project(builder.build()), Maps.newHashMap(), "", projected);
-  }
-
-  protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws IOException {
-    FlinkSource.Builder builder = FlinkSource.forRowData().filters(Collections.singletonList(filter));
-    return run(builder, Maps.newHashMap(), sqlFilter, "*");
-  }
-
-  private List<Row> runWithOptions(Map<String, String> options) throws IOException {
-    FlinkSource.Builder builder = FlinkSource.forRowData();
-    Optional.ofNullable(options.get("snapshot-id")).ifPresent(value -> builder.snapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("start-snapshot-id"))
-        .ifPresent(value -> builder.startSnapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("end-snapshot-id"))
-        .ifPresent(value -> builder.endSnapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("as-of-timestamp"))
-        .ifPresent(value -> builder.asOfTimestamp(Long.parseLong(value)));
-    return run(builder, options, "", "*");
-  }
-
-  private List<Row> run() throws IOException {
-    return run(FlinkSource.forRowData(), Maps.newHashMap(), "", "*");
-  }
-
-  protected abstract List<Row> run(FlinkSource.Builder formatBuilder, Map<String, String> sqlOptions, String sqlFilter,
-                                   String... sqlSelectedFields) throws IOException;
+  protected abstract List<Row> runWithProjection(String... projected) throws IOException;
+  protected abstract List<Row> runWithFilter(Expression filter, String sqlFilter) throws IOException;
+  protected abstract List<Row> runWithOptions(Map<String, String> options) throws IOException;
+  protected abstract List<Row> run() throws IOException;
 
   @Test
   public void testUnpartitionedTable() throws Exception {

@@ -52,7 +52,7 @@ import org.apache.iceberg.util.DateTimeUtil;
  *
  * @param <T> is the Java class returned by this iterator whose objects contain one or more rows.
  */
-abstract class DataIterator<T> implements CloseableIterator<T> {
+public abstract class DataIterator<T> implements CloseableIterator<T> {
 
   private Iterator<FileScanTask> tasks;
   private final Map<String, InputFile> inputFiles;

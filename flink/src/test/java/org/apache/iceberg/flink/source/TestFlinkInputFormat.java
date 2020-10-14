@@ -44,7 +44,7 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 /**
  * Test {@link FlinkInputFormat}.
  */
-public class TestFlinkInputFormat extends TestFlinkScan {
+public class TestFlinkInputFormat extends TestFlinkSource {
 
   public TestFlinkInputFormat(String fileFormat) {
     super(fileFormat);
