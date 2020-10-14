@@ -33,7 +33,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 /**
  * Context object with optional arguments for a Flink Scan.
  */
-class ScanContext implements Serializable {
+public class ScanContext implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
@@ -73,7 +73,7 @@ class ScanContext implements Serializable {
   private final Schema projectedSchema;
   private final List<Expression> filterExpressions;
 
-  ScanContext() {
+  public ScanContext() {
     this.caseSensitive = CASE_SENSITIVE.defaultValue();
     this.snapshotId = SNAPSHOT_ID.defaultValue();
     this.startSnapshotId = START_SNAPSHOT_ID.defaultValue();
@@ -111,7 +111,7 @@ class ScanContext implements Serializable {
         config.get(SPLIT_FILE_OPEN_COST), properties.get(DEFAULT_NAME_MAPPING), projectedSchema, filterExpressions);
   }
 
-  boolean caseSensitive() {
+  public boolean caseSensitive() {
     return caseSensitive;
   }
 
@@ -120,7 +120,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long snapshotId() {
+  public Long snapshotId() {
     return snapshotId;
   }
 
@@ -129,7 +129,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long startSnapshotId() {
+  public Long startSnapshotId() {
     return startSnapshotId;
   }
 
@@ -138,7 +138,7 @@ class ScanContext implements Serializable {
         splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long endSnapshotId() {
+  public Long endSnapshotId() {
     return endSnapshotId;
   }
 
@@ -147,7 +147,7 @@ class ScanContext implements Serializable {
         splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long asOfTimestamp() {
+  public Long asOfTimestamp() {
     return asOfTimestamp;
   }
 
@@ -156,7 +156,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long splitSize() {
+  public Long splitSize() {
     return splitSize;
   }
 
@@ -165,7 +165,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Integer splitLookback() {
+  public Integer splitLookback() {
     return splitLookback;
   }
 
@@ -174,7 +174,7 @@ class ScanContext implements Serializable {
         lookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  Long splitOpenFileCost() {
+  public Long splitOpenFileCost() {
     return splitOpenFileCost;
   }
 
@@ -183,7 +183,7 @@ class ScanContext implements Serializable {
         splitLookback, fileCost, nameMapping, projectedSchema, filterExpressions);
   }
 
-  String nameMapping() {
+  public String nameMapping() {
     return nameMapping;
   }
 
@@ -192,7 +192,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, mapping, projectedSchema, filterExpressions);
   }
 
-  Schema projectedSchema() {
+  public Schema projectedSchema() {
     return projectedSchema;
   }
 
@@ -201,7 +201,7 @@ class ScanContext implements Serializable {
         splitLookback, splitOpenFileCost, nameMapping, schema, filterExpressions);
   }
 
-  List<Expression> filterExpressions() {
+  public List<Expression> filterExpressions() {
     return filterExpressions;
   }
 

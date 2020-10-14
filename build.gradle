@@ -254,6 +254,7 @@ project(':iceberg-flink') {
     compile project(':iceberg-parquet')
     compile project(':iceberg-hive-metastore')
 
+    compileOnly "org.apache.flink:flink-connector-base"
     compileOnly "org.apache.flink:flink-streaming-java_2.12"
     compileOnly "org.apache.flink:flink-streaming-java_2.12::tests"
     compileOnly "org.apache.flink:flink-table-api-java-bridge_2.12"
