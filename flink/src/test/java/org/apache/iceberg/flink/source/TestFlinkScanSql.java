@@ -47,7 +47,7 @@ import org.junit.Test;
 /**
  * Test Flink SELECT SQLs.
  */
-public class TestFlinkScanSql extends TestFlinkScan {
+public class TestFlinkScanSql extends TestFlinkSource {
 
   private volatile TableEnvironment tEnv;
 

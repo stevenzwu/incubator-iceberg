@@ -34,7 +34,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 /**
  * Context object with optional arguments for a Flink Scan.
  */
-class ScanContext implements Serializable {
+public class ScanContext implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
@@ -145,7 +145,7 @@ class ScanContext implements Serializable {
     return monitorInterval;
   }
 
-  String nameMapping() {
+  public String nameMapping() {
     return nameMapping;
   }
 

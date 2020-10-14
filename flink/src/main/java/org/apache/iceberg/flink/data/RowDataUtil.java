@@ -23,9 +23,13 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.util.Utf8;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.data.DecimalData;
+import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.ByteBuffers;
@@ -68,5 +72,19 @@ public class RowDataUtil {
       default:
     }
     return value;
+  }
+
+  public static RowData clone(RowData from, RowType rowType, TypeSerializer[] fieldSerializers) {
+    GenericRowData ret = new GenericRowData(rowType.getFieldCount());
+    ret.setRowKind(from.getRowKind());
+    for (int i = 0; i < rowType.getFieldCount(); i++) {
+      if (!from.isNullAt(i)) {
+        RowData.FieldGetter getter = RowData.createFieldGetter(rowType.getTypeAt(i), i);
+        ret.setField(i, fieldSerializers[i].copy(getter.getFieldOrNull(from)));
+      } else {
+        ret.setField(i, null);
+      }
+    }
+    return ret;
   }
 }
