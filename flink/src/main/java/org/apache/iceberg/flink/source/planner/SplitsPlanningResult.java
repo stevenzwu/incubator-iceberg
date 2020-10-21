@@ -17,30 +17,28 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.enumerator;
+package org.apache.iceberg.flink.source.planner;
 
-import java.io.Serializable;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
-import org.apache.iceberg.flink.source.planner.SplitPlannerState;
+import java.util.Collection;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
-/**
- * Enumerator state for checkpointing
- */
-public class IcebergEnumState implements Serializable {
+public class SplitsPlanningResult {
 
-  private final SplitPlannerState plannerState;
-  private final SplitAssignerState assignerState;
+  private final boolean noMoreSplits;
+  private final Collection<IcebergSourceSplit> splits;
 
-  public IcebergEnumState(SplitPlannerState plannerState, SplitAssignerState assignerState) {
-    this.plannerState = plannerState;
-    this.assignerState = assignerState;
+  public SplitsPlanningResult(
+      boolean noMoreSplits,
+      Collection<IcebergSourceSplit> splits) {
+    this.noMoreSplits = noMoreSplits;
+    this.splits = splits;
   }
 
-  public SplitPlannerState plannerState() {
-    return plannerState;
+  public boolean noMoreSplits() {
+    return noMoreSplits;
   }
 
-  public SplitAssignerState assignerState() {
-    return assignerState;
+  public Collection<IcebergSourceSplit> splits() {
+    return splits;
   }
 }

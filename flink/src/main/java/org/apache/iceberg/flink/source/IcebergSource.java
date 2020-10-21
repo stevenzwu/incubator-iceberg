@@ -42,9 +42,9 @@ import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumSettings;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumStateSerializer;
-import org.apache.iceberg.flink.source.enumerator.IcebergSplitAssigner;
-import org.apache.iceberg.flink.source.enumerator.SimpleIcebergSplitAssigner;
-import org.apache.iceberg.flink.source.enumerator.StaticIcebergSplitEnumerator;
+import org.apache.iceberg.flink.source.assigner.SplitAssigner;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssigner;
+import org.apache.iceberg.flink.source.enumerator.IcebergSplitEnumerator;
 import org.apache.iceberg.flink.source.reader.DataIteratorFactory;
 import org.apache.iceberg.flink.source.reader.IcebergSourceReader;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
@@ -55,7 +55,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
 
   private final TableLoader tableLoader;
   private final ContinuousEnumSettings contEnumSettings;
-  private final IcebergSplitAssigner.Provider assignerFactory;
+  private final SplitAssigner.Provider assignerFactory;
   private final ScanContext scanContext;
   private final DataIteratorFactory<T> iteratorFactory;
 
@@ -64,7 +64,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   IcebergSource(
       TableLoader tableLoader,
       @Nullable ContinuousEnumSettings contEnumSettings,
-      IcebergSplitAssigner.Provider assignerFactory,
+      SplitAssigner.Provider assignerFactory,
       ScanContext scanContext,
       DataIteratorFactory<T> iteratorFactory) {
 
@@ -116,9 +116,9 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
 
   @Override
   public SplitEnumerator<IcebergSourceSplit, IcebergEnumState> restoreEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext, IcebergEnumState checkpoint)
+      SplitEnumeratorContext<IcebergSourceSplit> enumContext, IcebergEnumState enumState)
       throws IOException {
-    return createEnumerator(enumContext, checkpoint);
+    return createEnumerator(enumContext, enumState);
   }
 
   @Override
@@ -137,7 +137,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
 
     tableLoader.open();
     final Table table = tableLoader.loadTable();
-    final IcebergSplitAssigner assigner = assignerFactory.create();
+    final SplitAssigner assigner = assignerFactory.create();
 
     if (contEnumSettings != null) {
       throw new UnsupportedOperationException("Continuous enumeration mode not supported yet");
@@ -149,7 +149,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
             .createIcebergSourceSplits(table, scanContext);
         assigner.addSplits(splits);
       }
-      return new StaticIcebergSplitEnumerator(enumContext, assigner);
+      return new IcebergSplitEnumerator(enumContext, assigner);
     }
   }
 
@@ -172,13 +172,13 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     private final TableLoader tableLoader;
 
     private ContinuousEnumSettings contEnumSettings;
-    private IcebergSplitAssigner.Provider assignerFactory;
+    private SplitAssigner.Provider assignerFactory;
     private ScanContext scanContext;
     private DataIteratorFactory<T> iteratorFactory;
 
     Builder(TableLoader tableLoader) {
       this.tableLoader = tableLoader;
-      this.assignerFactory = () -> new SimpleIcebergSplitAssigner();
+      this.assignerFactory = () -> new SimpleSplitAssigner();
       this.scanContext = new ScanContext();
     }
 
@@ -187,7 +187,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       return this;
     }
 
-    public Builder<T> assignerFactory(IcebergSplitAssigner.Provider newAssignerFactory) {
+    public Builder<T> assignerFactory(SplitAssigner.Provider newAssignerFactory) {
       this.assignerFactory = newAssignerFactory;
       return this;
     }

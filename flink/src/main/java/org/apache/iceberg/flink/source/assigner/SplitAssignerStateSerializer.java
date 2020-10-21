@@ -17,30 +17,16 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.enumerator;
+package org.apache.iceberg.flink.source.assigner;
 
-import java.io.Serializable;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
-import org.apache.iceberg.flink.source.planner.SplitPlannerState;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 
-/**
- * Enumerator state for checkpointing
- */
-public class IcebergEnumState implements Serializable {
+public interface SplitAssignerStateSerializer {
 
-  private final SplitPlannerState plannerState;
-  private final SplitAssignerState assignerState;
+  int getVersion();
 
-  public IcebergEnumState(SplitPlannerState plannerState, SplitAssignerState assignerState) {
-    this.plannerState = plannerState;
-    this.assignerState = assignerState;
-  }
+  void serialize(SplitAssignerState state, DataOutputSerializer out);
 
-  public SplitPlannerState plannerState() {
-    return plannerState;
-  }
-
-  public SplitAssignerState assignerState() {
-    return assignerState;
-  }
+  SplitAssignerState deserialize(int version, DataInputDeserializer input);
 }

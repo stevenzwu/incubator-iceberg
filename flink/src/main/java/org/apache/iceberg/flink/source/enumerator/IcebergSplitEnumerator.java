@@ -29,6 +29,8 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.connector.base.source.event.NoMoreSplitsEvent;
 import org.apache.iceberg.flink.source.SourceEvents;
+import org.apache.iceberg.flink.source.assigner.SplitAssigner;
+import org.apache.iceberg.flink.source.planner.SplitPlanner;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
@@ -37,16 +39,17 @@ import org.slf4j.LoggerFactory;
 /**
  * One-time split enumeration at the beginning
  */
-public class StaticIcebergSplitEnumerator implements
+public class IcebergSplitEnumerator implements
     SplitEnumerator<IcebergSourceSplit, IcebergEnumState> {
-  private static final Logger LOG = LoggerFactory.getLogger(StaticIcebergSplitEnumerator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(IcebergSplitEnumerator.class);
 
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
-  private final IcebergSplitAssigner assigner;
+  private final SplitAssigner assigner;
 
-  public StaticIcebergSplitEnumerator(
+  public IcebergSplitEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      IcebergSplitAssigner assigner) {
+      SplitPlanner planner,
+      SplitAssigner assigner) {
     this.enumContext = enumContext;
     this.assigner = assigner;
   }

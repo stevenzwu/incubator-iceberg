@@ -21,7 +21,9 @@ package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.IOException;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.util.InstantiationUtil;
+import org.apache.iceberg.flink.source.planner.SplitPlannerStateSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
 
 /**
@@ -39,6 +41,7 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
 
   @Override
   public byte[] serialize(IcebergEnumState state) throws IOException {
+
     return InstantiationUtil.serializeObject(state);
   }
 

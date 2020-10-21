@@ -17,48 +17,58 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.enumerator;
+package org.apache.iceberg.flink.source.assigner;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 /**
  * This assigner hands out splits in a random order.
  * It doesn't guarantee any ordering.
  */
-public class SimpleIcebergSplitAssigner implements IcebergSplitAssigner {
+public class SimpleSplitAssigner implements SplitAssigner {
 
   private final Queue<IcebergSourceSplit> pendingSplits;
+  private final AtomicBoolean noMoreSplits;
+  private final Queue<Integer> readersAwaitingSplit;
 
-  public SimpleIcebergSplitAssigner() {
-    pendingSplits = new ArrayDeque<>();
+  public SimpleSplitAssigner() {
+    this(Collections.emptyList(), false);
   }
 
-  public SimpleIcebergSplitAssigner(
-      Collection<IcebergSourceSplit> pendingSplits) {
-    this.pendingSplits = new ArrayDeque<>(pendingSplits);
-  }
-
-  @Override
-  public Optional<IcebergSourceSplit> getNext(int subtask) {
-    return Optional.ofNullable(pendingSplits.poll());
-  }
-
-  @Override
-  public void addSplits(Collection<IcebergSourceSplit> splits) {
-    pendingSplits.addAll(splits);
+  public SimpleSplitAssigner(
+      Collection<IcebergSourceSplit> splits,
+      boolean noMoreSplits) {
+    this.pendingSplits = new ArrayDeque<>(splits);
+    this.noMoreSplits = new AtomicBoolean(noMoreSplits);
+    this.readersAwaitingSplit = new ArrayDeque<>();
   }
 
   @Override
-  public Collection<IcebergSourceSplit> remainingSplits() {
-    return pendingSplits;
-  }
-
-  @Override
-  public void finishSplits(Collection<String> finishedSplitIds) {
+  public void onSplitsCompletion(int subtask, Collection<String> completedSplitIds) {
     // no-op
+  }
+
+  @Override
+  public SplitsAssignmentResult assignSplits(int subtask) {
+    return null;
+  }
+
+  @Override
+  public void addSplits(SplitsPlanningResult planningResult) {
+    pendingSplits.addAll(planningResult.splits());
+    noMoreSplits.set(planningResult.noMoreSplits());
+  }
+
+  @Override
+  public SplitAssignerState splitAssignerState() {
+    return new SimpleSplitAssignerState(pendingSplits, noMoreSplits.get());
   }
 }
