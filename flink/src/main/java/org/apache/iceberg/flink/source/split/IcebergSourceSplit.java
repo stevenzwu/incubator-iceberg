@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink.source.split;
 
+import java.io.Serializable;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import org.apache.flink.api.connector.source.SourceSplit;
@@ -28,7 +29,7 @@ import org.apache.iceberg.relocated.com.google.common.base.MoreObjects;
 import org.apache.iceberg.relocated.com.google.common.base.Objects;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 
-public class IcebergSourceSplit implements SourceSplit {
+public class IcebergSourceSplit implements SourceSplit, Serializable {
 
   private final CombinedScanTask task;
   private final long startingPosition;

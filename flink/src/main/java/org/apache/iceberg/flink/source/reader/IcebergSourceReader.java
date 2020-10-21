@@ -20,7 +20,6 @@
 package org.apache.iceberg.flink.source.reader;
 
 import java.util.Collection;
-import java.util.Collections;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
@@ -69,7 +68,11 @@ public class IcebergSourceReader<T> extends
    */
   @Override
   public void start() {
-    requestSplit(Collections.emptyList());
+    // TODO: in 1.11.2, it seems that SplitRequestEvent
+    // reached enumerator before reader registration.
+    // This is probably fixed in master branch.
+    // That is why it worked for file source.
+//    requestSplit(Collections.emptyList());
   }
 
   @Override

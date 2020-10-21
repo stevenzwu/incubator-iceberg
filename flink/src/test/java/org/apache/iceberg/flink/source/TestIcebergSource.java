@@ -19,25 +19,30 @@
 
 package org.apache.iceberg.flink.source;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
-import org.apache.flink.table.api.TableColumn;
-import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.conversion.DataStructureConverter;
+import org.apache.flink.table.data.conversion.DataStructureConverters;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorFactory;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -50,41 +55,34 @@ public class TestIcebergSource extends TestFlinkScan {
 
   @Override
   protected List<Row> runWithProjection(String... projected) throws Exception {
-    TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
-    TableSchema schema = FlinkSchemaUtil.toSchema(FlinkSchemaUtil.convert(
-        catalog.loadTable(TableIdentifier.of("default", "t")).schema()));
-    for (String field : projected) {
-      TableColumn column = schema.getTableColumn(field).get();
-      tableSchemaBuilder.field(column.getName(), column.getType());
-    }
-    Schema projectedSchema = null;
-    ScanContext scanContext = new ScanContext();
-    scanContext.project(projectedSchema);
+    final Schema tableSchema = tableLoader.loadTable().schema();
+    final Schema projectedSchema = tableSchema.select(projected);
+    ScanContext scanContext = new ScanContext()
+        .project(projectedSchema);
     return run(getBuilder(scanContext));
   }
 
   @Override
   protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws Exception {
-    ScanContext scanContext = new ScanContext();
-    scanContext.filterRows(Arrays.asList(filter));
+    ScanContext scanContext = new ScanContext()
+        .project(SCHEMA)
+        .filterRows(Arrays.asList(filter));
     return run(getBuilder(scanContext));
   }
 
   @Override
   protected List<Row> runWithOptions(Map<String, String> options) throws Exception {
-    ScanContext scanContext = new ScanContext().fromProperties(options);
+    ScanContext scanContext = new ScanContext()
+        .project(SCHEMA)
+        .fromProperties(options);
     return run(getBuilder(scanContext));
   }
 
   @Override
   protected List<Row> run() throws Exception {
-    return run(getBuilder());
+    return run(getBuilder(new ScanContext().project(SCHEMA)));
   }
 
-  private IcebergSource.Builder<RowData> getBuilder() {
-    return IcebergSource.<RowData>builder(tableLoader)
-        .iteratorFactory(new RowDataIteratorFactory());
-  }
   private IcebergSource.Builder<RowData> getBuilder(ScanContext scanContext) {
     return IcebergSource.<RowData>builder(tableLoader)
         .iteratorFactory(new RowDataIteratorFactory())
@@ -95,28 +93,48 @@ public class TestIcebergSource extends TestFlinkScan {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
     final IcebergSource<RowData> source = sourceBuilder.build();
-    final SinkFunction<RowData> collectorSink = new SinkFunction<RowData>() {
-      @Override
-      public void invoke(RowData value, Context context) throws Exception {
 
-      }
-    };
-
-    env.fromSource(
+    final DataStream<RowData> stream = env.fromSource(
         source,
         WatermarkStrategy.noWatermarks(),
         "testBasicRead",
-        TypeInformation.of(RowData.class))
-        .addSink(collectorSink)
-        .name("collectorSink");
-    env.execute();
+        TypeInformation.of(RowData.class));
 
-    final ScanContext scanContext = source.scanContext();
-    final Schema projectedSchema = scanContext.projectedSchema() == null ?
-        source.tableInfo().schema() :
-        scanContext.projectedSchema();
-    final RowType rowType = FlinkSchemaUtil.convert(projectedSchema);
-    return TestHelpers.convertRowDataToRow(Collections.emptyList(), rowType);
+    final List<RowData> result = ImmutableList.copyOf(DataStreamUtils.collect(stream));
+    final RowType rowType = FlinkSchemaUtil.convert(source.scanContext().projectedSchema());
+    return TestHelpers.convertRowDataToRow(result, rowType);
   }
 
+//  private List<Row> run(IcebergSource.Builder<RowData> sourceBuilder) throws Exception {
+//    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+//    env.setParallelism(1);
+//    final IcebergSource<RowData> source = sourceBuilder.build();
+//
+//    final RichMapFunction<RowData, Row> converter = new RichMapFunction<RowData, Row>() {
+//
+//      private transient DataStructureConverter<Object, Object> converter;
+//
+//      @Override
+//      public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
+//        final RowType rowType = FlinkSchemaUtil.convert(source.tableInfo().schema());
+//        converter = DataStructureConverters.getConverter(
+//            TypeConversions.fromLogicalToDataType(rowType));
+//      }
+//
+//      @Override
+//      public Row map(RowData rowData) throws Exception {
+//        return (Row) converter.toExternal(rowData);
+//      }
+//    };
+//
+//    final DataStream<Row> stream = env.fromSource(
+//        source,
+//        WatermarkStrategy.noWatermarks(),
+//        "testBasicRead",
+//        TypeInformation.of(RowData.class))
+//        .map(converter);
+//
+//    final List<Row> result = new ArrayList<>(ImmutableList.copyOf(DataStreamUtils.collect(stream)));
+//    return result;
+//  }
 }

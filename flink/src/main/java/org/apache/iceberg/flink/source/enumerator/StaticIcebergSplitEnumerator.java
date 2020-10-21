@@ -20,6 +20,7 @@
 package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import org.apache.flink.api.connector.source.SourceEvent;
@@ -77,9 +78,14 @@ public class StaticIcebergSplitEnumerator implements
 
   @Override
   public void addReader(int subtaskId) {
-    LOG.info("Reader {} added", subtaskId);
+    LOG.info("Added reader {}", subtaskId);
     // reader requests for split upon start
     // nothing for enumerator to do upon registration
+
+    // TODO: remove this code along with
+    // the change in IcebergSourceReader.start()
+    // when the ordering bug fix in master branch is ported to 1.11.3.
+    assignNextEvents(subtaskId);
   }
 
   @Override
@@ -98,7 +104,7 @@ public class StaticIcebergSplitEnumerator implements
     if (nextSplit.isPresent()) {
       final IcebergSourceSplit split = nextSplit.get();
       SplitsAssignment assignment = new SplitsAssignment(
-          ImmutableMap.of(subtask, split));
+          ImmutableMap.of(subtask, Arrays.asList(split)));
       enumContext.assignSplits(assignment);
       LOG.info("Assigned split to subtask {}: {}", subtask, split);
     } else {
