@@ -22,11 +22,9 @@ package org.apache.iceberg.flink.source.assigner;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 /**
@@ -57,18 +55,22 @@ public class SimpleSplitAssigner implements SplitAssigner {
   }
 
   @Override
-  public SplitsAssignmentResult assignSplits(int subtask) {
+  public CompletableFuture<IcebergSourceSplit> getNext(int subtask) {
     return null;
   }
 
   @Override
-  public void addSplits(SplitsPlanningResult planningResult) {
-    pendingSplits.addAll(planningResult.splits());
-    noMoreSplits.set(planningResult.noMoreSplits());
+  public void addSplits(Collection<IcebergSourceSplit> splits) {
+    pendingSplits.addAll(splits);
   }
 
   @Override
-  public SplitAssignerState splitAssignerState() {
+  public void noMoreSplits() {
+    noMoreSplits.set(true);
+  }
+
+  @Override
+  public SplitAssignerState state() {
     return new SimpleSplitAssignerState(pendingSplits, noMoreSplits.get());
   }
 }

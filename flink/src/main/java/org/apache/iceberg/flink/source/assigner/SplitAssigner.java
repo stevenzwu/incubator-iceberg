@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source.assigner;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
@@ -34,28 +35,10 @@ public interface SplitAssigner {
   void onSplitsCompletion(int subtask, Collection<String> completedSplitIds);
 
   /**
-   * Request the next split assignment.
-   *
-   * The assignment result could be one of those three scenarios
-   * <p>
-   * <ul>
-   *   <li>Splits are assigned only for the requesting subtask
-   *   <li>No splits are assigned for the requesting subtask and
-   *   assigner should keep track of the readers waiting for assignment.
-   *     <ul>
-   *       <li>Assigner doesn't have splits available now.
-   *       But more splits may be available later.
-   *       <li>Assigner may decide to hold back the assignment
-   *       due to some constraint (e.g. event time alignment)
-   *     </ul>
-   *   <li>Splits are assigned for multiple readers/subtasks.
-   *   Assigner should assign splits to the waiting readers
-   *   (along with the requesting reader)
-   *   when splits become available or when the constraint is satisfied later.
-   * </ul>
-   *
+   * If future is completed with null value,
+   * it means assigner has no more splits now and in the future.
    */
-  SplitsAssignmentResult assignSplits(int subtask);
+  CompletableFuture<IcebergSourceSplit> getNext(int subtask);
 
   /**
    * Adds a set of splits to this assigner. This could happen when
@@ -64,12 +47,18 @@ public interface SplitAssigner {
    *   <li>new splits got discovered.
    * </ul>
    */
-  void addSplits(SplitsPlanningResult planningResult);
+  void addSplits(Collection<IcebergSourceSplit> splits);
+
+  /**
+   * Signal assigner that there will be more splits
+   * to be discovered.
+   */
+  void noMoreSplits();
 
   /**
    * Gets the split assigner state for checkpointing
    */
-  SplitAssignerState splitAssignerState();
+  SplitAssignerState state();
 
   /**
    * This factory is to allow the {@code IcebergSplitAssigner} to be lazily

@@ -22,9 +22,15 @@ package org.apache.iceberg.flink.source.planner;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.source.ScanContext;
 
-public interface SplitPlanner {
+public class BatchSplitPlanner implements SplitPlanner {
 
-  SplitsPlanningResult planSplits(Table table, ScanContext scanContext);
+  @Override
+  public SplitsPlanningResult planSplits(Table table, ScanContext scanContext) {
+    return null;
+  }
 
-  SplitPlannerState state();
+  @Override
+  public SplitPlannerState getSplitPlannerState() {
+    return null;
+  }
 }

@@ -23,14 +23,19 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.connector.base.source.event.NoMoreSplitsEvent;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.SourceEvents;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
 import org.apache.iceberg.flink.source.planner.SplitPlanner;
+import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
@@ -44,20 +49,43 @@ public class IcebergSplitEnumerator implements
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSplitEnumerator.class);
 
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
+  private final Table table;
+  private final ScanContext scanContext;
+  private final ContinuousEnumSettings contEnumSettings;
+  private final SplitPlanner planner;
   private final SplitAssigner assigner;
 
   public IcebergSplitEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
+      Table table,
+      ScanContext scanContext,
+      @Nullable ContinuousEnumSettings contEnumSettings,
       SplitPlanner planner,
       SplitAssigner assigner) {
     this.enumContext = enumContext;
+    this.table = table;
+    this.scanContext = scanContext;
+    this.contEnumSettings = contEnumSettings;
+    this.planner = planner;
     this.assigner = assigner;
   }
 
   @Override
   public void start() {
-    // already discovered all the splits and added to assigner
-    // no resources to start
+    if (contEnumSettings != null) {
+      LOG.info("Starting the IcebergSplitEnumerator for continuous mode: {}",
+          contEnumSettings.getDiscoveryInterval());
+      enumContext.callAsync(
+          () -> planner.planSplits(table, scanContext),
+          this::handleSplitsDiscovery,
+          0,
+          contEnumSettings.getDiscoveryInterval().toMillis());
+    } else {
+      LOG.info("Starting the IcebergSplitEnumerator for static mode");
+      enumContext.callAsync(
+          () -> planner.planSplits(table, scanContext),
+          this::handleSplitsDiscovery);
+    }
   }
 
   @Override
@@ -65,7 +93,7 @@ public class IcebergSplitEnumerator implements
     if (sourceEvent instanceof SourceEvents.SplitRequestEvent) {
       final SourceEvents.SplitRequestEvent splitRequestEvent =
           (SourceEvents.SplitRequestEvent) sourceEvent;
-      assigner.finishSplits(splitRequestEvent.finishedSplitIds());
+      assigner.onSplitsCompletion(subtaskId, splitRequestEvent.finishedSplitIds());
       assignNextEvents(subtaskId);
     } else {
       LOG.error("Received unrecognized event: {}", sourceEvent);
@@ -74,7 +102,7 @@ public class IcebergSplitEnumerator implements
 
   @Override
   public void addSplitsBack(List<IcebergSourceSplit> splits, int subtaskId) {
-    LOG.info("Add {} assigned (but non-checkpointed) splits back to the pool for failed subtask {}: {}",
+    LOG.info("Add {} splits back to the pool for failed subtask {}: {}",
         splits.size(), subtaskId, splits);
     assigner.addSplits(splits);
   }
@@ -93,7 +121,7 @@ public class IcebergSplitEnumerator implements
 
   @Override
   public IcebergEnumState snapshotState() throws Exception {
-    return IcebergEnumState.fromSplitsCollection(assigner.remainingSplits());
+    return new IcebergEnumState(planner.state(), assigner.state());
   }
 
   @Override
@@ -101,18 +129,29 @@ public class IcebergSplitEnumerator implements
     // no resources to close
   }
 
+  private void handleSplitsDiscovery(SplitsPlanningResult result, Throwable error) {
+    if (error != null) {
+      LOG.error("Failed to discover splits", error);
+    } else {
+      assigner.addSplits(result.splits());
+      if (result.noMoreSplits()) {
+        assigner.noMoreSplits();
+      }
+    }
+  }
+
   private void assignNextEvents(int subtask) {
     LOG.info("Subtask {} is requesting a new split", subtask);
-    final Optional<IcebergSourceSplit> nextSplit = assigner.getNext(subtask);
-    if (nextSplit.isPresent()) {
-      final IcebergSourceSplit split = nextSplit.get();
-      SplitsAssignment assignment = new SplitsAssignment(
-          ImmutableMap.of(subtask, Arrays.asList(split)));
-      enumContext.assignSplits(assignment);
-      LOG.info("Assigned split to subtask {}: {}", subtask, split);
-    } else {
-      enumContext.sendEventToSourceReader(subtask, new NoMoreSplitsEvent());
-      LOG.info("No more splits available for subtask {}", subtask);
-    }
+    assigner.getNext(subtask).thenAccept(split -> {
+      if (split != null) {
+        SplitsAssignment assignment = new SplitsAssignment(
+            ImmutableMap.of(subtask, Arrays.asList(split)));
+        enumContext.assignSplits(assignment);
+        LOG.info("Assigned split to subtask {}: {}", subtask, split);
+      } else {
+        enumContext.sendEventToSourceReader(subtask, new NoMoreSplitsEvent());
+        LOG.info("No more splits available for subtask {}", subtask);
+      }
+    });
   }
 }
