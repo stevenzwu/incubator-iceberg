@@ -70,13 +70,14 @@ public class StaticIcebergSplitEnumerator implements
 
   @Override
   public void addSplitsBack(List<IcebergSourceSplit> splits, int subtaskId) {
-    LOG.debug("Add {} assigned (but non-checkpointed) splits back to the pool for failed subtask {}: {}",
+    LOG.info("Add {} assigned (but non-checkpointed) splits back to the pool for failed subtask {}: {}",
         splits.size(), subtaskId, splits);
     assigner.addSplits(splits);
   }
 
   @Override
   public void addReader(int subtaskId) {
+    LOG.info("Reader {} added", subtaskId);
     // reader requests for split upon start
     // nothing for enumerator to do upon registration
   }

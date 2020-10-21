@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink;
 
+import java.io.Serializable;
 import java.util.Map;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -29,7 +30,7 @@ import org.apache.iceberg.io.FileIO;
 /**
  * This util class holds the serializable parts of {@link org.apache.iceberg.Table}
  */
-public class TableInfo {
+public class TableInfo implements Serializable {
 
   private final String location;
   private final Schema schema;

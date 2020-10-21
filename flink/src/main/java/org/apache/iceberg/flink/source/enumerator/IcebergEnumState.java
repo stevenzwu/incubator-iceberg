@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink.source.enumerator;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,7 +29,7 @@ import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 /**
  * Enumerator state for checkpointing
  */
-public class IcebergEnumState {
+public class IcebergEnumState implements Serializable {
 
   private final Collection<IcebergSourceSplit> splits;
 

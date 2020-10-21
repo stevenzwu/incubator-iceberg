@@ -33,6 +33,7 @@ public interface IcebergSplitAssigner {
    * assumed to be done and the source will finish once the readers finished their current
    * splits.
    */
+  // TODO: change to completablefuture
   Optional<IcebergSourceSplit> getNext(int subttask);
 
   /**

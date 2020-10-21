@@ -39,7 +39,7 @@ public abstract class TestFlinkSource extends TestFlinkScan {
   }
 
   @Override
-  protected List<Row> runWithProjection(String... projected) throws IOException {
+  protected List<Row> runWithProjection(String... projected) throws Exception {
     TableSchema.Builder builder = TableSchema.builder();
     TableSchema schema = FlinkSchemaUtil.toSchema(FlinkSchemaUtil.convert(
         catalog.loadTable(TableIdentifier.of("default", "t")).schema()));
@@ -51,13 +51,13 @@ public abstract class TestFlinkSource extends TestFlinkScan {
   }
 
   @Override
-  protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws IOException {
+  protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws Exception {
     FlinkSource.Builder builder = FlinkSource.forRowData().filters(Collections.singletonList(filter));
     return run(builder, Maps.newHashMap(), sqlFilter, "*");
   }
 
   @Override
-  protected List<Row> runWithOptions(Map<String, String> options) throws IOException {
+  protected List<Row> runWithOptions(Map<String, String> options) throws Exception {
     FlinkSource.Builder builder = FlinkSource.forRowData();
     Optional.ofNullable(options.get("snapshot-id")).ifPresent(value -> builder.snapshotId(Long.parseLong(value)));
     Optional.ofNullable(options.get("start-snapshot-id"))
@@ -70,10 +70,10 @@ public abstract class TestFlinkSource extends TestFlinkScan {
   }
 
   @Override
-  protected List<Row> run() throws IOException {
+  protected List<Row> run() throws Exception {
     return run(FlinkSource.forRowData(), Maps.newHashMap(), "", "*");
   }
 
   protected abstract List<Row> run(FlinkSource.Builder formatBuilder, Map<String, String> sqlOptions, String sqlFilter,
-                                   String... sqlSelectedFields) throws IOException;
+                                   String... sqlSelectedFields) throws Exception;
 }

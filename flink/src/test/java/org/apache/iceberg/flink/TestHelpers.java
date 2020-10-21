@@ -99,10 +99,13 @@ public class TestHelpers {
   }
 
   public static List<Row> readRows(FlinkInputFormat inputFormat, RowType rowType) throws IOException {
+    return convertRowDataToRow(readRowData(inputFormat, rowType), rowType);
+  }
+
+  public static List<Row> convertRowDataToRow(List<RowData> rowDataList, RowType rowType) {
     DataStructureConverter<Object, Object> converter = DataStructureConverters.getConverter(
         TypeConversions.fromLogicalToDataType(rowType));
-
-    return readRowData(inputFormat, rowType).stream()
+    return rowDataList.stream()
         .map(converter::toExternal)
         .map(Row.class::cast)
         .collect(Collectors.toList());

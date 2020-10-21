@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.connector.source.SourceReader;
@@ -134,6 +135,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
       IcebergEnumState checkpoint) {
 
+    tableLoader.open();
     final Table table = tableLoader.loadTable();
     final IcebergSplitAssigner assigner = assignerFactory.create();
 
@@ -151,7 +153,17 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     }
   }
 
-  public static <T> Builder<T> forTable(TableLoader tableLoader) {
+  @VisibleForTesting
+  ScanContext scanContext() {
+    return scanContext;
+  }
+
+  @VisibleForTesting
+  TableInfo tableInfo() {
+    return tableInfo;
+  }
+
+  public static <T> Builder<T> builder(TableLoader tableLoader) {
     return new Builder<>(tableLoader);
   }
 
@@ -170,6 +182,26 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       this.scanContext = new ScanContext();
     }
 
+    public Builder<T> continuousEnumSettings(ContinuousEnumSettings newContEnumSettings) {
+      this.contEnumSettings = newContEnumSettings;
+      return this;
+    }
+
+    public Builder<T> assignerFactory(IcebergSplitAssigner.Provider newAssignerFactory) {
+      this.assignerFactory = newAssignerFactory;
+      return this;
+    }
+
+    public Builder<T> scanContext(ScanContext newScanContext) {
+      this.scanContext = newScanContext;
+      return this;
+    }
+
+    public Builder<T> iteratorFactory(DataIteratorFactory<T> newIteratorFactory) {
+      this.iteratorFactory = newIteratorFactory;
+      return this;
+    }
+
     public IcebergSource build() {
       doSanityCheck();
       return new IcebergSource(
@@ -179,22 +211,6 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
           scanContext,
           iteratorFactory
       );
-    }
-
-    public void continuousEnumSettings(ContinuousEnumSettings newContEnumSettings) {
-      this.contEnumSettings = newContEnumSettings;
-    }
-
-    public void assignerFactory(IcebergSplitAssigner.Provider newAssignerFactory) {
-      this.assignerFactory = newAssignerFactory;
-    }
-
-    public void scanContext(ScanContext newScanContext) {
-      this.scanContext = newScanContext;
-    }
-
-    public void iteratorFactory(DataIteratorFactory<T> newIteratorFactory) {
-      this.iteratorFactory = newIteratorFactory;
     }
 
     private void doSanityCheck() {

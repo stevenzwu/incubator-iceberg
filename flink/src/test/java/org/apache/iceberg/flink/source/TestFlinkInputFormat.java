@@ -62,7 +62,7 @@ public class TestFlinkInputFormat extends TestFlinkSource {
   @Override
   protected List<Row> run(
       FlinkSource.Builder formatBuilder, Map<String, String> sqlOptions, String sqlFilter, String... sqlSelectedFields)
-      throws IOException {
+      throws Exception {
     return runFormat(formatBuilder.tableLoader(loader()).buildFormat());
   }
 
@@ -100,7 +100,7 @@ public class TestFlinkInputFormat extends TestFlinkSource {
     assertRows(result, expected);
   }
 
-  private List<Row> runFormat(FlinkInputFormat inputFormat) throws IOException {
+  private List<Row> runFormat(FlinkInputFormat inputFormat) throws Exception {
     RowType rowType = FlinkSchemaUtil.convert(inputFormat.projectedSchema());
     return TestHelpers.readRows(inputFormat, rowType);
   }

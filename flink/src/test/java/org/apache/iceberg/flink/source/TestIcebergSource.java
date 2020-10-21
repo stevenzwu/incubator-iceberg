@@ -19,66 +19,104 @@
 
 package org.apache.iceberg.flink.source;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.table.api.TableColumn;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
-import org.apache.iceberg.relocated.com.google.common.collect.Maps;
+import org.apache.iceberg.flink.TestHelpers;
+import org.apache.iceberg.flink.source.reader.RowDataIteratorFactory;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class TestIcebergSource extends TestFlinkScan {
 
-  TestIcebergSource(String fileFormat) {
+  public TestIcebergSource(String fileFormat) {
     super(fileFormat);
   }
 
-  protected List<Row> runWithProjection(String... projected) throws IOException {
-    TableSchema.Builder builder = TableSchema.builder();
+  @Override
+  protected List<Row> runWithProjection(String... projected) throws Exception {
+    TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
     TableSchema schema = FlinkSchemaUtil.toSchema(FlinkSchemaUtil.convert(
         catalog.loadTable(TableIdentifier.of("default", "t")).schema()));
     for (String field : projected) {
       TableColumn column = schema.getTableColumn(field).get();
-      builder.field(column.getName(), column.getType());
+      tableSchemaBuilder.field(column.getName(), column.getType());
     }
-    return run(FlinkSource.forRowData().project(builder.build()), Maps.newHashMap(), "", projected);
+    Schema projectedSchema = null;
+    ScanContext scanContext = new ScanContext();
+    scanContext.project(projectedSchema);
+    return run(getBuilder(scanContext));
   }
 
-  protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws IOException {
+  @Override
+  protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws Exception {
     ScanContext scanContext = new ScanContext();
     scanContext.filterRows(Arrays.asList(filter));
-    IcebergSource.Builder builder = FlinkSource.forRowData().filters(Collections.singletonList(filter));
-    return run(builder, Maps.newHashMap(), sqlFilter, "*");
+    return run(getBuilder(scanContext));
   }
 
-  protected List<Row> runWithOptions(Map<String, String> options) throws IOException {
-    FlinkSource.Builder builder = FlinkSource.forRowData();
-    Optional.ofNullable(options.get("snapshot-id")).ifPresent(value -> builder.snapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("start-snapshot-id"))
-        .ifPresent(value -> builder.startSnapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("end-snapshot-id"))
-        .ifPresent(value -> builder.endSnapshotId(Long.parseLong(value)));
-    Optional.ofNullable(options.get("as-of-timestamp"))
-        .ifPresent(value -> builder.asOfTimestamp(Long.parseLong(value)));
-    return run(builder, options, "", "*");
+  @Override
+  protected List<Row> runWithOptions(Map<String, String> options) throws Exception {
+    ScanContext scanContext = new ScanContext().fromProperties(options);
+    return run(getBuilder(scanContext));
   }
 
-  protected List<Row> run() throws IOException {
-    return run(FlinkSource.forRowData(), Maps.newHashMap(), "", "*");
+  @Override
+  protected List<Row> run() throws Exception {
+    return run(getBuilder());
   }
 
-  protected List<Row> run(IcebergSource.Builder sourceBuilder, Map<String, String> sqlOptions, String sqlFilter,
-                                   String... sqlSelectedFields) throws IOException {
+  private IcebergSource.Builder<RowData> getBuilder() {
+    return IcebergSource.<RowData>builder(tableLoader)
+        .iteratorFactory(new RowDataIteratorFactory());
+  }
+  private IcebergSource.Builder<RowData> getBuilder(ScanContext scanContext) {
+    return IcebergSource.<RowData>builder(tableLoader)
+        .iteratorFactory(new RowDataIteratorFactory())
+        .scanContext(scanContext);
+  }
 
+  private List<Row> run(IcebergSource.Builder<RowData> sourceBuilder) throws Exception {
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.setParallelism(1);
+    final IcebergSource<RowData> source = sourceBuilder.build();
+    final SinkFunction<RowData> collectorSink = new SinkFunction<RowData>() {
+      @Override
+      public void invoke(RowData value, Context context) throws Exception {
+
+      }
+    };
+
+    env.fromSource(
+        source,
+        WatermarkStrategy.noWatermarks(),
+        "testBasicRead",
+        TypeInformation.of(RowData.class))
+        .addSink(collectorSink)
+        .name("collectorSink");
+    env.execute();
+
+    final ScanContext scanContext = source.scanContext();
+    final Schema projectedSchema = scanContext.projectedSchema() == null ?
+        source.tableInfo().schema() :
+        scanContext.projectedSchema();
+    final RowType rowType = FlinkSchemaUtil.convert(projectedSchema);
+    return TestHelpers.convertRowDataToRow(Collections.emptyList(), rowType);
   }
 
 }
