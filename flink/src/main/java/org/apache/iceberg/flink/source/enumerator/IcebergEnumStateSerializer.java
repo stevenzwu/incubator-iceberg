@@ -21,16 +21,13 @@ package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.IOException;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
-import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.util.InstantiationUtil;
-import org.apache.iceberg.flink.source.planner.SplitPlannerStateSerializer;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
 
 /**
  * TODO: use Java serialization for now.
  * will need to write our own serializer.
  */
-public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<IcebergEnumState> {
+public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<AbstractEnumState> {
 
   public static final IcebergEnumStateSerializer INSTANCE = new IcebergEnumStateSerializer();
 
@@ -40,13 +37,13 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
   }
 
   @Override
-  public byte[] serialize(IcebergEnumState state) throws IOException {
+  public byte[] serialize(AbstractEnumState state) throws IOException {
 
     return InstantiationUtil.serializeObject(state);
   }
 
   @Override
-  public IcebergEnumState deserialize(int version, byte[] serialized) throws IOException {
+  public AbstractEnumState deserialize(int version, byte[] serialized) throws IOException {
     try {
       return InstantiationUtil.deserializeObject(serialized, getClass().getClassLoader());
     } catch (ClassNotFoundException e) {

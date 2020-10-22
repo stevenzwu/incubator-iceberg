@@ -17,20 +17,28 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.planner;
+package org.apache.iceberg.flink.source.assigner;
 
-import org.apache.iceberg.Table;
-import org.apache.iceberg.flink.source.ScanContext;
+import java.util.Collection;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
-public class BatchSplitPlanner implements SplitPlanner {
+public class SimpleAssignerState implements AssignerState {
 
-  @Override
-  public SplitsPlanningResult planSplits(Table table, ScanContext scanContext) {
-    return null;
+  private final Collection<IcebergSourceSplit> pendingSplits;
+  private final boolean noMoreSplits;
+
+  public SimpleAssignerState(
+      Collection<IcebergSourceSplit> pendingSplits,
+      boolean noMoreSplits) {
+    this.pendingSplits = pendingSplits;
+    this.noMoreSplits = noMoreSplits;
   }
 
-  @Override
-  public SplitPlannerState state() {
-    return null;
+  public Collection<IcebergSourceSplit> getPendingSplits() {
+    return pendingSplits;
+  }
+
+  public boolean noMoreSplits() {
+    return noMoreSplits;
   }
 }

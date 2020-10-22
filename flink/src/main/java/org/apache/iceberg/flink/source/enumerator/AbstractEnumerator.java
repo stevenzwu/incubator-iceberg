@@ -23,18 +23,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.flink.connector.base.source.event.NoMoreSplitsEvent;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.SourceEvents;
-import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.planner.SplitPlanner;
+import org.apache.iceberg.flink.source.assigner.Assigner;
 import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -44,48 +39,18 @@ import org.slf4j.LoggerFactory;
 /**
  * One-time split enumeration at the beginning
  */
-public class IcebergSplitEnumerator implements
-    SplitEnumerator<IcebergSourceSplit, IcebergEnumState> {
-  private static final Logger LOG = LoggerFactory.getLogger(IcebergSplitEnumerator.class);
+public abstract class AbstractEnumerator<EnumStateT extends AbstractEnumState> implements
+    SplitEnumerator<IcebergSourceSplit, EnumStateT> {
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractEnumerator.class);
 
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
-  private final Table table;
-  private final ScanContext scanContext;
-  private final ContinuousEnumSettings contEnumSettings;
-  private final SplitPlanner planner;
-  private final SplitAssigner assigner;
+  private final Assigner assigner;
 
-  public IcebergSplitEnumerator(
+  public AbstractEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      Table table,
-      ScanContext scanContext,
-      @Nullable ContinuousEnumSettings contEnumSettings,
-      SplitPlanner planner,
-      SplitAssigner assigner) {
+      Assigner assigner) {
     this.enumContext = enumContext;
-    this.table = table;
-    this.scanContext = scanContext;
-    this.contEnumSettings = contEnumSettings;
-    this.planner = planner;
     this.assigner = assigner;
-  }
-
-  @Override
-  public void start() {
-    if (contEnumSettings != null) {
-      LOG.info("Starting the IcebergSplitEnumerator for continuous mode: {}",
-          contEnumSettings.getDiscoveryInterval());
-      enumContext.callAsync(
-          () -> planner.planSplits(table, scanContext),
-          this::handleSplitsDiscovery,
-          0,
-          contEnumSettings.getDiscoveryInterval().toMillis());
-    } else {
-      LOG.info("Starting the IcebergSplitEnumerator for static mode");
-      enumContext.callAsync(
-          () -> planner.planSplits(table, scanContext),
-          this::handleSplitsDiscovery);
-    }
   }
 
   @Override
@@ -120,29 +85,24 @@ public class IcebergSplitEnumerator implements
   }
 
   @Override
-  public IcebergEnumState snapshotState() throws Exception {
-    return new IcebergEnumState(planner.state(), assigner.state());
-  }
-
-  @Override
   public void close() throws IOException {
     // no resources to close
   }
 
-  private void handleSplitsDiscovery(SplitsPlanningResult result, Throwable error) {
+  protected void handleSplitsDiscovery(SplitsPlanningResult result, Throwable error) {
     if (error != null) {
       LOG.error("Failed to discover splits", error);
     } else {
       assigner.addSplits(result.splits());
       if (result.noMoreSplits()) {
-        assigner.noMoreSplits();
+        assigner.onNoMoreSplits();
       }
     }
   }
 
   private void assignNextEvents(int subtask) {
     LOG.info("Subtask {} is requesting a new split", subtask);
-    assigner.getNext(subtask).thenAccept(split -> {
+    Optional<SplitsAssignment<IcebergSourceSplit>> assignment = assigner.getAssignment(subtask);
       if (split != null) {
         SplitsAssignment assignment = new SplitsAssignment(
             ImmutableMap.of(subtask, Arrays.asList(split)));

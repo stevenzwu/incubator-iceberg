@@ -17,9 +17,13 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.assigner;
+package org.apache.iceberg.flink.source.enumerator;
 
-import java.io.Serializable;
+import org.apache.iceberg.flink.source.assigner.AssignerState;
 
-public interface SplitAssignerState extends Serializable {
+public class StaticEnumState<AssignerStateT extends AssignerState> extends AbstractEnumState<AssignerStateT> {
+
+  public StaticEnumState(AssignerStateT assignerState) {
+    super(assignerState);
+  }
 }

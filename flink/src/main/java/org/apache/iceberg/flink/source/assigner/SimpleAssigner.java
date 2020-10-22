@@ -22,26 +22,28 @@ package org.apache.iceberg.flink.source.assigner;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 /**
  * This assigner hands out splits in a random order.
  * It doesn't guarantee any ordering.
  */
-public class SimpleSplitAssigner implements SplitAssigner {
+public class SimpleAssigner implements Assigner<SimpleAssignerState> {
 
   private final Queue<IcebergSourceSplit> pendingSplits;
   private final AtomicBoolean noMoreSplits;
   private final Queue<Integer> readersAwaitingSplit;
 
-  public SimpleSplitAssigner() {
+  public SimpleAssigner() {
     this(Collections.emptyList(), false);
   }
 
-  public SimpleSplitAssigner(
+  public SimpleAssigner(
       Collection<IcebergSourceSplit> splits,
       boolean noMoreSplits) {
     this.pendingSplits = new ArrayDeque<>(splits);
@@ -55,7 +57,7 @@ public class SimpleSplitAssigner implements SplitAssigner {
   }
 
   @Override
-  public CompletableFuture<IcebergSourceSplit> getNext(int subtask) {
+  public Optional<SplitsAssignment> getAssignment(int subtask) {
     return null;
   }
 
@@ -65,12 +67,12 @@ public class SimpleSplitAssigner implements SplitAssigner {
   }
 
   @Override
-  public void noMoreSplits() {
+  public void onNoMoreSplits() {
     noMoreSplits.set(true);
   }
 
   @Override
-  public SplitAssignerState state() {
-    return new SimpleSplitAssignerState(pendingSplits, noMoreSplits.get());
+  public SimpleAssignerState state() {
+    return new SimpleAssignerState(pendingSplits, noMoreSplits.get());
   }
 }

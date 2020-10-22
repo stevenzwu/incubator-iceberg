@@ -21,11 +21,12 @@ package org.apache.iceberg.flink.source.assigner;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.apache.iceberg.flink.source.planner.SplitsPlanningResult;
+import org.apache.flink.api.connector.source.SplitsAssignment;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
-public interface SplitAssigner {
+public interface Assigner<AssignerStateT extends AssignerState> {
 
   /**
    * Notify assigner when splits are finished
@@ -35,10 +36,31 @@ public interface SplitAssigner {
   void onSplitsCompletion(int subtask, Collection<String> completedSplitIds);
 
   /**
-   * If future is completed with null value,
-   * it means assigner has no more splits now and in the future.
+   * This can be called when reader requests more splits
+   * <li>Enumerator discovered new splits
+   * <p>
+   *
+   * The assignment result could be one of those three scenarios
+   * <p>
+   * <ul>
+   *   <li>Splits are assigned only for the requesting subtask
+   *   <li>No splits are assigned for the requesting subtask and
+   *   assigner should keep track of the readers waiting for assignment.
+   *     <ul>
+   *       <li>Assigner doesn't have splits available now.
+   *       But more splits may be available later.
+   *       <li>Assigner may decide to hold back the assignment
+   *       due to some constraint (e.g. event time alignment)
+   *     </ul>
+   *   <li>Splits are assigned for multiple readers/subtasks.
+   *   Assigner should assign splits to the waiting readers
+   *   (along with the requesting reader)
+   *   when splits become available or when the constraint is satisfied later.
+   * </ul>
    */
-  CompletableFuture<IcebergSourceSplit> getNext(int subtask);
+  Optional<SplitsAssignment> getAssignment(int subtask);
+
+  Optional<SplitsAssignment> getAssignment();
 
   /**
    * Adds a set of splits to this assigner. This could happen when
@@ -53,12 +75,12 @@ public interface SplitAssigner {
    * Signal assigner that there will be more splits
    * to be discovered.
    */
-  void noMoreSplits();
+  void onNoMoreSplits();
 
   /**
    * Gets the split assigner state for checkpointing
    */
-  SplitAssignerState state();
+  AssignerStateT state();
 
   /**
    * This factory is to allow the {@code IcebergSplitAssigner} to be lazily
@@ -70,6 +92,6 @@ public interface SplitAssigner {
     /**
      * Creates a new {@code FileSplitAssigner} that starts with the given set of initial splits.
      */
-    SplitAssigner create();
+    Assigner create();
   }
 }

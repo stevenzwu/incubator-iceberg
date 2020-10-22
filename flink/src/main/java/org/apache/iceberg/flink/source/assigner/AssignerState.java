@@ -19,14 +19,7 @@
 
 package org.apache.iceberg.flink.source.assigner;
 
-import org.apache.flink.core.memory.DataInputDeserializer;
-import org.apache.flink.core.memory.DataOutputSerializer;
+import java.io.Serializable;
 
-public interface SplitAssignerStateSerializer {
-
-  int getVersion();
-
-  void serialize(SplitAssignerState state, DataOutputSerializer out);
-
-  SplitAssignerState deserialize(int version, DataInputDeserializer input);
+public interface AssignerState extends Serializable {
 }

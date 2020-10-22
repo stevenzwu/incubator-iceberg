@@ -17,28 +17,23 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.assigner;
+package org.apache.iceberg.flink.source.enumerator;
 
-import java.util.Collection;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import java.io.Serializable;
+import org.apache.iceberg.flink.source.assigner.AssignerState;
 
-public class SimpleSplitAssignerState implements SplitAssignerState {
+/**
+ * Enumerator state for checkpointing
+ */
+public class AbstractEnumState<AssingerStateT extends AssignerState> implements Serializable {
 
-  private final Collection<IcebergSourceSplit> pendingSplits;
-  private final boolean noMoreSplits;
+  private final AssingerStateT assignerState;
 
-  public SimpleSplitAssignerState(
-      Collection<IcebergSourceSplit> pendingSplits,
-      boolean noMoreSplits) {
-    this.pendingSplits = pendingSplits;
-    this.noMoreSplits = noMoreSplits;
+  public AbstractEnumState(AssingerStateT assignerState) {
+    this.assignerState = assignerState;
   }
 
-  public Collection<IcebergSourceSplit> getPendingSplits() {
-    return pendingSplits;
-  }
-
-  public boolean noMoreSplits() {
-    return noMoreSplits;
+  public AssingerStateT assignerState() {
+    return assignerState;
   }
 }

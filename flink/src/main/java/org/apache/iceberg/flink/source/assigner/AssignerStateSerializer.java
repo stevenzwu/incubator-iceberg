@@ -17,20 +17,16 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.planner;
+package org.apache.iceberg.flink.source.assigner;
 
-import org.apache.iceberg.Table;
-import org.apache.iceberg.flink.source.ScanContext;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 
-public class BatchSplitPlanner implements SplitPlanner {
+public interface AssignerStateSerializer<AssignerStateT extends AssignerState> {
 
-  @Override
-  public SplitsPlanningResult planSplits(Table table, ScanContext scanContext) {
-    return null;
-  }
+  int getVersion();
 
-  @Override
-  public SplitPlannerState state() {
-    return null;
-  }
+  void serialize(AssignerStateT state, DataOutputSerializer out);
+
+  AssignerStateT deserialize(int version, DataInputDeserializer input);
 }
