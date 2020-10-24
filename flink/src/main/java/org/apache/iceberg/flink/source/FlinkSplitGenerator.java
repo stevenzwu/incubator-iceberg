@@ -32,7 +32,7 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 
-class FlinkSplitGenerator {
+public class FlinkSplitGenerator {
   private FlinkSplitGenerator() {
   }
 
