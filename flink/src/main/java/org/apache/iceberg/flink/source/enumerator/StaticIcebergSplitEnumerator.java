@@ -22,7 +22,6 @@ package org.apache.iceberg.flink.source.enumerator;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
@@ -100,16 +99,16 @@ public class StaticIcebergSplitEnumerator implements
 
   private void assignNextEvents(int subtask) {
     LOG.info("Subtask {} is requesting a new split", subtask);
-    final Optional<IcebergSourceSplit> nextSplit = assigner.getNext(subtask);
-    if (nextSplit.isPresent()) {
-      final IcebergSourceSplit split = nextSplit.get();
-      SplitsAssignment assignment = new SplitsAssignment(
-          ImmutableMap.of(subtask, Arrays.asList(split)));
-      enumContext.assignSplits(assignment);
-      LOG.info("Assigned split to subtask {}: {}", subtask, split);
-    } else {
-      enumContext.sendEventToSourceReader(subtask, new NoMoreSplitsEvent());
-      LOG.info("No more splits available for subtask {}", subtask);
-    }
+    assigner.getNext(subtask).thenAccept(split -> {
+      if (split != null) {
+        SplitsAssignment assignment = new SplitsAssignment(
+            ImmutableMap.of(subtask, Arrays.asList(split)));
+        enumContext.assignSplits(assignment);
+        LOG.info("Assigned split to subtask {}: {}", subtask, split);
+      } else {
+        enumContext.sendEventToSourceReader(subtask, new NoMoreSplitsEvent());
+        LOG.info("No more splits available for subtask {}", subtask);
+      }
+    });
   }
 }

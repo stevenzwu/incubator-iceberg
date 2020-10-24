@@ -21,8 +21,10 @@ package org.apache.iceberg.flink.source.enumerator;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 /**
@@ -32,19 +34,25 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 public class SimpleIcebergSplitAssigner implements IcebergSplitAssigner {
 
   private final Queue<IcebergSourceSplit> pendingSplits;
+  private final ExecutorService executorService;
 
   public SimpleIcebergSplitAssigner() {
-    pendingSplits = new ArrayDeque<>();
+    this(new ArrayDeque<>());
   }
 
   public SimpleIcebergSplitAssigner(
       Collection<IcebergSourceSplit> pendingSplits) {
     this.pendingSplits = new ArrayDeque<>(pendingSplits);
+    this.executorService = Executors.newSingleThreadExecutor();
   }
 
   @Override
-  public Optional<IcebergSourceSplit> getNext(int subtask) {
-    return Optional.ofNullable(pendingSplits.poll());
+  public CompletableFuture<IcebergSourceSplit> getNext(int subtask) {
+    CompletableFuture<IcebergSourceSplit> future = new CompletableFuture();
+    executorService.execute(() -> {
+      future.complete(pendingSplits.poll());
+    });
+    return future;
   }
 
   @Override

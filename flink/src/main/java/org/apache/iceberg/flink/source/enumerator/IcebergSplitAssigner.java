@@ -21,7 +21,7 @@ package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 public interface IcebergSplitAssigner {
@@ -34,7 +34,7 @@ public interface IcebergSplitAssigner {
    * splits.
    */
   // TODO: change to completablefuture
-  Optional<IcebergSourceSplit> getNext(int subttask);
+  CompletableFuture<IcebergSourceSplit> getNext(int subttask);
 
   /**
    * Adds a set of splits to this assigner. This happens for example when some split processing
