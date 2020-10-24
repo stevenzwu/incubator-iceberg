@@ -20,10 +20,8 @@
 package org.apache.iceberg.flink.source;
 
 import java.io.IOException;
-import java.util.List;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Experimental;
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.api.connector.source.SourceReaderContext;
@@ -35,29 +33,39 @@ import org.apache.flink.connector.base.source.reader.synchronization.FutureCompl
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssigner;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerState;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerStateSerializer;
+import org.apache.iceberg.flink.source.assigner.SplitAssigner;
+import org.apache.iceberg.flink.source.assigner.SplitAssignerFactory;
+import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
+import org.apache.iceberg.flink.source.assigner.SplitAssignerStateSerializer;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumSettings;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumStateSerializer;
-import org.apache.iceberg.flink.source.enumerator.IcebergSplitAssigner;
-import org.apache.iceberg.flink.source.enumerator.SimpleIcebergSplitAssigner;
-import org.apache.iceberg.flink.source.enumerator.StaticIcebergSplitEnumerator;
+import org.apache.iceberg.flink.source.enumerator.StaticIcebergEnumerator;
 import org.apache.iceberg.flink.source.reader.DataIteratorFactory;
 import org.apache.iceberg.flink.source.reader.IcebergSourceReader;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
 
 @Experimental
-public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEnumState> {
+public class IcebergSource<T,
+    SplitAssignerStateT extends SplitAssignerState,
+    SplitAssignerT extends SplitAssigner<SplitAssignerStateT>,
+    SplitAssignerStateSerializerT extends SplitAssignerStateSerializer<SplitAssignerStateT>>
+    implements Source<T, IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> {
 
   private final Configuration config;
   private final TableLoader tableLoader;
   private final ContinuousEnumSettings contEnumSettings;
-  private final IcebergSplitAssigner.Provider assignerFactory;
   private final ScanContext scanContext;
   private final DataIteratorFactory<T> iteratorFactory;
+  private final SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
+      SplitAssignerStateSerializerT> assignerFactory;
 
   private final TableInfo tableInfo;
 
@@ -65,21 +73,22 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       Configuration config,
       TableLoader tableLoader,
       @Nullable ContinuousEnumSettings contEnumSettings,
-      IcebergSplitAssigner.Provider assignerFactory,
       ScanContext scanContext,
-      DataIteratorFactory<T> iteratorFactory) {
+      DataIteratorFactory<T> iteratorFactory,
+      SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
+          SplitAssignerStateSerializerT> assignerFactory) {
 
     this.config = config;
     this.tableLoader = tableLoader;
     this.contEnumSettings = contEnumSettings;
-    this.assignerFactory = assignerFactory;
     this.scanContext = scanContext;
     this.iteratorFactory = iteratorFactory;
+    this.assignerFactory = assignerFactory;
 
-    // extract serializable table info once during initialization
+    // extract serializable table info once during construction
     tableLoader.open();
     try (TableLoader loader = tableLoader) {
-      this.tableInfo = TableInfo.fromTable(tableLoader.loadTable());
+      this.tableInfo = TableInfo.fromTable(loader.loadTable());
     } catch (IOException e) {
       throw new RuntimeException("Failed to close table loader", e);
     }
@@ -115,16 +124,16 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   }
 
   @Override
-  public SplitEnumerator<IcebergSourceSplit, IcebergEnumState> createEnumerator(
+  public SplitEnumerator<IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> createEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext) {
     return createEnumerator(enumContext, null);
   }
 
   @Override
-  public SplitEnumerator<IcebergSourceSplit, IcebergEnumState> restoreEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext, IcebergEnumState checkpoint)
+  public SplitEnumerator<IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> restoreEnumerator(
+      SplitEnumeratorContext<IcebergSourceSplit> enumContext, IcebergEnumState<SplitAssignerStateT> enumState)
       throws IOException {
-    return createEnumerator(enumContext, checkpoint);
+    return createEnumerator(enumContext, enumState);
   }
 
   @Override
@@ -133,102 +142,106 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   }
 
   @Override
-  public SimpleVersionedSerializer<IcebergEnumState> getEnumeratorCheckpointSerializer() {
-    return IcebergEnumStateSerializer.INSTANCE;
+  public SimpleVersionedSerializer<IcebergEnumState<SplitAssignerStateT>> getEnumeratorCheckpointSerializer() {
+    SplitAssignerStateSerializer<SplitAssignerStateT> assignerSerializer = assignerFactory.createSerializer();
+    return new IcebergEnumStateSerializer(assignerSerializer);
   }
 
-  private SplitEnumerator<IcebergSourceSplit, IcebergEnumState> createEnumerator(
+  private SplitEnumerator<IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> createEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      IcebergEnumState checkpoint) {
+      @Nullable IcebergEnumState<SplitAssignerStateT> enumState) {
 
-    final IcebergSplitAssigner assigner = assignerFactory.create();
+    final SplitAssigner<SplitAssignerStateT> assigner;
+    if (enumState == null) {
+      assigner = assignerFactory.createAssigner();
+    } else {
+      assigner = assignerFactory.createAssigner(enumState.assignerState());
+    }
     if (contEnumSettings != null) {
       throw new UnsupportedOperationException("Continuous enumeration mode not supported yet");
     } else {
-      if (checkpoint != null) {
-        assigner.addSplits(checkpoint.getSplits());
-      } else {
-        tableLoader.open();
-        try (TableLoader loader = tableLoader) {
-          final Table table = loader.loadTable();
-          final List<IcebergSourceSplit> splits = FlinkSplitGenerator
-              .planIcebergSourceSplits(table, scanContext);
-          assigner.addSplits(splits);
-        } catch (IOException e) {
-          throw new RuntimeException("failed to close table loader", e);
-        }
-      }
-      return new StaticIcebergSplitEnumerator(enumContext, assigner);
+      return new StaticIcebergEnumerator(
+          enumContext,
+          tableLoader,
+          scanContext,
+          assigner,
+          enumState);
     }
   }
 
-  @VisibleForTesting
-  ScanContext scanContext() {
-    return scanContext;
+  public static <T> Builder<T, SimpleSplitAssignerState, SimpleSplitAssigner,
+      SimpleSplitAssignerStateSerializer> useSimpleAssigner() {
+    SimpleSplitAssignerFactory assignerFactory = new SimpleSplitAssignerFactory();
+    return new Builder<>(assignerFactory);
   }
 
-  public static <T> Builder<T> builder(TableLoader tableLoader) {
-    return new Builder<>(tableLoader);
-  }
+  public static class Builder<T,
+      SplitAssignerStateT extends SplitAssignerState,
+      SplitAssignerT extends SplitAssigner<SplitAssignerStateT>,
+      SplitAssignerStateSerializerT extends SplitAssignerStateSerializer<SplitAssignerStateT>> {
 
-  public static class Builder<T> {
-
-    private final TableLoader tableLoader;
+    private final SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> assignerFactory;
 
     // required
+    private TableLoader tableLoader;
     private DataIteratorFactory<T> iteratorFactory;
 
     // optional
     private Configuration config;
-    private IcebergSplitAssigner.Provider assignerFactory;
     private ScanContext scanContext;
     @Nullable private ContinuousEnumSettings contEnumSettings;
 
-    Builder(TableLoader tableLoader) {
-      this.tableLoader = tableLoader;
+    Builder(SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> assignerFactory) {
+      this.assignerFactory = assignerFactory;
       this.config = new Configuration();
-      this.assignerFactory = () -> new SimpleIcebergSplitAssigner();
       this.scanContext = new ScanContext();
     }
 
-    public Builder<T> iteratorFactory(DataIteratorFactory<T> newIteratorFactory) {
+    public Builder<T, SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> tableLoader(TableLoader loader) {
+      this.tableLoader = loader;
+      return this;
+    }
+
+    public Builder<T, SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> iteratorFactory(DataIteratorFactory<T> newIteratorFactory) {
       this.iteratorFactory = newIteratorFactory;
       return this;
     }
 
-    public Builder<T> config(Configuration newConfig) {
+    public Builder<T, SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> config(Configuration newConfig) {
       this.config = newConfig;
       return this;
     }
 
-    public Builder<T> scanContext(ScanContext newScanContext) {
+    public Builder<T, SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> scanContext(ScanContext newScanContext) {
       this.scanContext = newScanContext;
       return this;
     }
 
-    public Builder<T> assignerFactory(IcebergSplitAssigner.Provider newAssignerFactory) {
-      this.assignerFactory = newAssignerFactory;
-      return this;
-    }
-
-    public Builder<T> continuousEnumSettings(ContinuousEnumSettings newContEnumSettings) {
+    public Builder<T, SplitAssignerStateT, SplitAssignerT,
+        SplitAssignerStateSerializerT> continuousEnumSettings(ContinuousEnumSettings newContEnumSettings) {
       this.contEnumSettings = newContEnumSettings;
       return this;
     }
 
-    public IcebergSource<T> build() {
-      doSanityCheck();
+    public IcebergSource<T, SplitAssignerStateT, SplitAssignerT, SplitAssignerStateSerializerT> build() {
+      checkRequired();
       return new IcebergSource(
           config,
           tableLoader,
           contEnumSettings,
-          assignerFactory,
           scanContext,
-          iteratorFactory
-      );
+          iteratorFactory,
+          assignerFactory);
     }
 
-    private void doSanityCheck() {
+    private void checkRequired() {
+      Preconditions.checkNotNull(tableLoader, "tableLoader is required.");
       Preconditions.checkNotNull(iteratorFactory, "iteratorFactory is required.");
     }
   }
