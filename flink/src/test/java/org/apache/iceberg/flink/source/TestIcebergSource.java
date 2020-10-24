@@ -62,7 +62,7 @@ public class TestIcebergSource extends TestFlinkScan {
     Schema projectedSchema = FlinkSchemaUtil.convert(icebergTableSchema, flinkSchema);
     ScanContext scanContext = new ScanContext()
         .project(projectedSchema);
-    return run(getBuilder(scanContext));
+    return run(scanContext);
   }
 
   @Override
@@ -71,7 +71,7 @@ public class TestIcebergSource extends TestFlinkScan {
     ScanContext scanContext = new ScanContext()
         .project(tableSchema)
         .filterRows(Arrays.asList(filter));
-    return run(getBuilder(scanContext));
+    return run(scanContext);
   }
 
   @Override
@@ -80,7 +80,7 @@ public class TestIcebergSource extends TestFlinkScan {
     ScanContext scanContext = new ScanContext()
         .project(tableSchema)
         .fromProperties(options);
-    return run(getBuilder(scanContext));
+    return run(scanContext);
   }
 
   @Override
@@ -88,33 +88,29 @@ public class TestIcebergSource extends TestFlinkScan {
     Schema tableSchema = catalog.loadTable(tableIdentifier).schema();
     ScanContext scanContext = new ScanContext()
         .project(tableSchema);
-    return run(getBuilder(scanContext));
+    return run(scanContext);
   }
 
-  private IcebergSource.Builder<RowData> getBuilder(ScanContext scanContext) {
+  private List<Row> run(ScanContext scanContext) throws Exception {
+
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+    env.setParallelism(1);
 
     Configuration config = new Configuration();
     config.setInteger(IcebergSourceOptions.READER_FETCH_BATCH_SIZE, 1);
 
-    return IcebergSource.<RowData>builder(tableLoader())
-        .iteratorFactory(new RowDataIteratorFactory())
-        .config(config)
-        .scanContext(scanContext);
-  }
-
-  private List<Row> run(IcebergSource.Builder<RowData> sourceBuilder) throws Exception {
-    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    env.setParallelism(1);
-    final IcebergSource<RowData> source = sourceBuilder.build();
-
     final DataStream<RowData> stream = env.fromSource(
-        source,
+        IcebergSource.<RowData>useSimpleAssigner(tableLoader())
+            .iteratorFactory(new RowDataIteratorFactory())
+            .config(config)
+            .scanContext(scanContext)
+        .build(),
         WatermarkStrategy.noWatermarks(),
         "testBasicRead",
         TypeInformation.of(RowData.class));
 
     final List<RowData> result = ImmutableList.copyOf(DataStreamUtils.collect(stream));
-    final RowType rowType = FlinkSchemaUtil.convert(source.scanContext().projectedSchema());
+    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
     return TestHelpers.convertRowDataToRow(result, rowType);
   }
 
