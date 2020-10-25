@@ -20,6 +20,7 @@
 package org.apache.iceberg.flink.source;
 
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 import org.apache.flink.annotation.Experimental;
 import org.apache.flink.api.connector.source.Boundedness;
@@ -33,6 +34,7 @@ import org.apache.flink.connector.base.source.reader.synchronization.FutureCompl
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssigner;
@@ -43,7 +45,8 @@ import org.apache.iceberg.flink.source.assigner.SplitAssigner;
 import org.apache.iceberg.flink.source.assigner.SplitAssignerFactory;
 import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
 import org.apache.iceberg.flink.source.assigner.SplitAssignerStateSerializer;
-import org.apache.iceberg.flink.source.enumerator.ContinuousEnumSettings;
+import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
+import org.apache.iceberg.flink.source.enumerator.ContinuousIcebergEnumerator;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumStateSerializer;
 import org.apache.iceberg.flink.source.enumerator.StaticIcebergEnumerator;
@@ -61,7 +64,7 @@ public class IcebergSource<T,
 
   private final Configuration config;
   private final TableLoader tableLoader;
-  private final ContinuousEnumSettings contEnumSettings;
+  private final ContinuousEnumConfig contEnumSettings;
   private final ScanContext scanContext;
   private final DataIteratorFactory<T> iteratorFactory;
   private final SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
@@ -72,7 +75,7 @@ public class IcebergSource<T,
   IcebergSource(
       Configuration config,
       TableLoader tableLoader,
-      @Nullable ContinuousEnumSettings contEnumSettings,
+      @Nullable ContinuousEnumConfig contEnumSettings,
       ScanContext scanContext,
       DataIteratorFactory<T> iteratorFactory,
       SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
@@ -157,15 +160,34 @@ public class IcebergSource<T,
     } else {
       assigner = assignerFactory.createAssigner(enumState.assignerState());
     }
-    if (contEnumSettings != null) {
-      throw new UnsupportedOperationException("Continuous enumeration mode not supported yet");
-    } else {
-      return new StaticIcebergEnumerator(
+    if (contEnumSettings == null) {
+      assigner.addSplits(getStaticSplits(tableLoader, scanContext));
+      assigner.onNoMoreSplits();
+      return new StaticIcebergEnumerator<>(
           enumContext,
           tableLoader,
           scanContext,
           assigner,
           enumState);
+    } else {
+      return new ContinuousIcebergEnumerator<>(
+          enumContext,
+          tableLoader,
+          scanContext,
+          assigner,
+          enumState,
+          contEnumSettings);
+    }
+  }
+
+  private static List<IcebergSourceSplit> getStaticSplits(
+      TableLoader tableLoader, ScanContext scanContext) {
+    tableLoader.open();
+    try (TableLoader loader = tableLoader) {
+      final Table table = loader.loadTable();
+      return FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to close table loader", e);
     }
   }
 
@@ -190,7 +212,7 @@ public class IcebergSource<T,
     // optional
     private Configuration config;
     private ScanContext scanContext;
-    @Nullable private ContinuousEnumSettings contEnumSettings;
+    @Nullable private ContinuousEnumConfig contEnumSettings;
 
     Builder(SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
         SplitAssignerStateSerializerT> assignerFactory) {
@@ -224,7 +246,7 @@ public class IcebergSource<T,
     }
 
     public Builder<T, SplitAssignerStateT, SplitAssignerT,
-        SplitAssignerStateSerializerT> continuousEnumSettings(ContinuousEnumSettings newContEnumSettings) {
+        SplitAssignerStateSerializerT> continuousEnumSettings(ContinuousEnumConfig newContEnumSettings) {
       this.contEnumSettings = newContEnumSettings;
       return this;
     }

@@ -324,7 +324,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     assertRecords(run(), records, typesSchema);
   }
 
-  static void assertRecords(List<Row> results, List<Record> expectedRecords, Schema schema) {
+  public static void assertRecords(List<Row> results, List<Record> expectedRecords, Schema schema) {
     List<Row> expected = Lists.newArrayList();
     @SuppressWarnings("unchecked")
     DataStructureConverter<RowData, Row> converter = (DataStructureConverter) DataStructureConverters.getConverter(
