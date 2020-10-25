@@ -97,7 +97,7 @@ public class TestIcebergSource extends TestFlinkScan {
     env.setParallelism(1);
 
     Configuration config = new Configuration();
-    config.setInteger(IcebergSourceOptions.READER_FETCH_BATCH_SIZE, 1);
+    config.setInteger(IcebergSourceOptions.READER_FETCH_BATCH_SIZE, 128);
 
     final DataStream<RowData> stream = env.fromSource(
         IcebergSource.<RowData>useSimpleAssigner()

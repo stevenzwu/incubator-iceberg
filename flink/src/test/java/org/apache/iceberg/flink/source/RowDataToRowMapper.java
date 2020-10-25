@@ -17,28 +17,23 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source.enumerator;
+package org.apache.iceberg.flink.source;
 
-import java.util.Collection;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.types.Row;
 
-public class SplitPlanningResult {
+public class RowDataToRowMapper extends RichMapFunction<RowData, Row> {
 
-  private final Collection<IcebergSourceSplit> splits;
-  private final long lastEnumeratedSnapshotId;
+  private final RowType rowType;
 
-  public SplitPlanningResult(
-      Collection<IcebergSourceSplit> splits,
-      long lastEnumeratedSnapshotId) {
-    this.splits = splits;
-    this.lastEnumeratedSnapshotId = lastEnumeratedSnapshotId;
+  public RowDataToRowMapper(RowType rowType) {
+    this.rowType = rowType;
   }
 
-  public Collection<IcebergSourceSplit> splits() {
-    return splits;
-  }
-
-  public long lastEnumeratedSnapshotId() {
-    return lastEnumeratedSnapshotId;
+  @Override
+  public Row map(RowData value) throws Exception {
+    return null;
   }
 }
