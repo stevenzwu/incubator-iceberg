@@ -115,7 +115,7 @@ public class ScanContext implements Serializable {
     return caseSensitive;
   }
 
-  ScanContext setCaseSensitive(boolean isCaseSensitive) {
+  public ScanContext setCaseSensitive(boolean isCaseSensitive) {
     return new ScanContext(isCaseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -124,7 +124,7 @@ public class ScanContext implements Serializable {
     return snapshotId;
   }
 
-  ScanContext useSnapshotId(Long scanSnapshotId) {
+  public ScanContext useSnapshotId(Long scanSnapshotId) {
     return new ScanContext(caseSensitive, scanSnapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -133,7 +133,7 @@ public class ScanContext implements Serializable {
     return startSnapshotId;
   }
 
-  ScanContext startSnapshotId(Long id) {
+  public ScanContext startSnapshotId(Long id) {
     return new ScanContext(caseSensitive, snapshotId, id, endSnapshotId, asOfTimestamp, splitSize, splitLookback,
         splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -142,7 +142,7 @@ public class ScanContext implements Serializable {
     return endSnapshotId;
   }
 
-  ScanContext endSnapshotId(Long id) {
+  public ScanContext endSnapshotId(Long id) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, id, asOfTimestamp, splitSize, splitLookback,
         splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -151,7 +151,7 @@ public class ScanContext implements Serializable {
     return asOfTimestamp;
   }
 
-  ScanContext asOfTimestamp(Long timestamp) {
+  public ScanContext asOfTimestamp(Long timestamp) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, timestamp, splitSize,
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -160,7 +160,7 @@ public class ScanContext implements Serializable {
     return splitSize;
   }
 
-  ScanContext splitSize(Long size) {
+  public ScanContext splitSize(Long size) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, size,
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -169,7 +169,7 @@ public class ScanContext implements Serializable {
     return splitLookback;
   }
 
-  ScanContext splitLookback(Integer lookback) {
+  public ScanContext splitLookback(Integer lookback) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         lookback, splitOpenFileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -178,7 +178,7 @@ public class ScanContext implements Serializable {
     return splitOpenFileCost;
   }
 
-  ScanContext splitOpenFileCost(Long fileCost) {
+  public ScanContext splitOpenFileCost(Long fileCost) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, fileCost, nameMapping, projectedSchema, filterExpressions);
   }
@@ -187,7 +187,7 @@ public class ScanContext implements Serializable {
     return nameMapping;
   }
 
-  ScanContext nameMapping(String mapping) {
+  public ScanContext nameMapping(String mapping) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, splitOpenFileCost, mapping, projectedSchema, filterExpressions);
   }
@@ -196,7 +196,7 @@ public class ScanContext implements Serializable {
     return projectedSchema;
   }
 
-  ScanContext project(Schema schema) {
+  public ScanContext project(Schema schema) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, splitOpenFileCost, nameMapping, schema, filterExpressions);
   }
@@ -205,7 +205,7 @@ public class ScanContext implements Serializable {
     return filterExpressions;
   }
 
-  ScanContext filterRows(List<Expression> filters) {
+  public ScanContext filterRows(List<Expression> filters) {
     return new ScanContext(caseSensitive, snapshotId, startSnapshotId, endSnapshotId, asOfTimestamp, splitSize,
         splitLookback, splitOpenFileCost, nameMapping, projectedSchema, filters);
   }
