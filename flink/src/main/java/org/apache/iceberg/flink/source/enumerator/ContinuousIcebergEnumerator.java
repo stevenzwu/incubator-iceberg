@@ -19,5 +19,100 @@
 
 package org.apache.iceberg.flink.source.enumerator;
 
-public class ContinuousIcebergEnumerator {
+import java.util.Optional;
+import javax.annotation.Nullable;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.flink.TableLoader;
+import org.apache.iceberg.flink.source.ScanContext;
+import org.apache.iceberg.flink.source.assigner.SplitAssigner;
+import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.parquet.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ContinuousIcebergEnumerator<SplitAssignerStateT extends SplitAssignerState>
+    extends AbstractIcebergEnumerator<SplitAssignerStateT> {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ContinuousIcebergEnumerator.class);
+
+  private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
+  private final ScanContext scanContext;
+  private final SplitAssigner<SplitAssignerStateT> assigner;
+  private final ContinuousEnumConfig contEnumConfig;
+  private final Table table;
+  private final ContinuousSplitPlanner splitPlanner;
+
+  /**
+   * snapshotId for the last enumerated snapshot.
+   * next incremental enumeration should based off this as starting position.
+   */
+  private volatile Optional<Long> lastEnumeratedSnapshotId;
+
+  public ContinuousIcebergEnumerator(
+      SplitEnumeratorContext<IcebergSourceSplit> enumContext,
+      TableLoader tableLoader,
+      ScanContext scanContext,
+      SplitAssigner<SplitAssignerStateT> assigner,
+      @Nullable IcebergEnumState<SplitAssignerStateT> enumState,
+      ContinuousEnumConfig contEnumConfig) {
+    super(enumContext, assigner);
+
+    this.enumContext = enumContext;
+    this.scanContext = scanContext;
+    this.assigner = assigner;
+    this.contEnumConfig = contEnumConfig;
+    validate();
+
+    this.table = loadTable(tableLoader);
+    this.splitPlanner = new ContinuousSplitPlanner();
+    if (enumState != null) {
+      this.lastEnumeratedSnapshotId = enumState.lastEnumeratedSnapshotId();
+    } else {
+      this.lastEnumeratedSnapshotId = Optional.empty();
+    }
+  }
+
+  private void validate() {
+    Preconditions.checkArgument(scanContext.snapshotId() == null,
+        "Can't set snapshotId in ScanContext for continuous enumerator");
+    Preconditions.checkArgument(scanContext.asOfTimestamp() == null,
+        "Can't set asOfTimestamp in ScanContext for continuous enumerator");
+    Preconditions.checkArgument(scanContext.startSnapshotId() == null,
+        "Can't set startSnapshotId in ScanContext for continuous enumerator");
+    Preconditions.checkArgument(scanContext.endSnapshotId() == null,
+        "Can't set endSnapshotId in ScanContext for continuous enumerator");
+  }
+
+  @Override
+  public void start() {
+    enumContext.callAsync(
+        this::discoverSplits,
+        this::processDiscoveredSplits,
+        0L,
+        contEnumConfig.discoveryInterval().toMillis());
+  }
+
+  @Override
+  public IcebergEnumState<SplitAssignerStateT> snapshotState() throws Exception {
+    return new IcebergEnumState<>(
+        lastEnumeratedSnapshotId,
+        assigner.splitAssignerState());
+  }
+
+  private SplitPlanningResult discoverSplits() {
+    return splitPlanner.planSplits(table, contEnumConfig,
+        scanContext, lastEnumeratedSnapshotId);
+  }
+
+  private void processDiscoveredSplits(SplitPlanningResult result, Throwable error) {
+    if (error == null) {
+      assigner.addSplits(result.splits());
+      lastEnumeratedSnapshotId = Optional.of(result.lastEnumeratedSnapshotId());
+    } else {
+      LOG.error("Failed to enumerate splits", error);
+    }
+  }
+
 }

@@ -52,10 +52,9 @@ public class IcebergEnumStateSerializer<
   public byte[] serialize(IcebergEnumState<SplitAssignerStateT> enumState) throws IOException {
     final DataOutputSerializer out = SERIALIZER_CACHE.get();
     // serialize enumerator state
-    Optional<Long> snapshotIdOpt = enumState.lastEnumeratedSnapshotId();
-    out.writeBoolean(snapshotIdOpt.isPresent());
-    if (snapshotIdOpt.isPresent()) {
-      out.writeLong(snapshotIdOpt.get());
+    out.writeBoolean(enumState.lastEnumeratedSnapshotId().isPresent());
+    if (enumState.lastEnumeratedSnapshotId().isPresent()) {
+      out.writeLong(enumState.lastEnumeratedSnapshotId().get());
     }
     // serialize pluggable assigner state
     out.writeInt(assignerSerializer.getVersion());
@@ -76,17 +75,14 @@ public class IcebergEnumStateSerializer<
   private IcebergEnumState<SplitAssignerStateT> deserializeV1(byte[] serialized) throws IOException {
     final DataInputDeserializer in = new DataInputDeserializer(serialized);
     // deserialize enumerator state
-    final boolean hasSnapshotId = in.readBoolean();
-    final Optional<Long> snapshotIdOpt;
-    if (hasSnapshotId) {
-      snapshotIdOpt = Optional.of(in.readLong());
-    } else {
-      snapshotIdOpt = Optional.empty();
+    Optional<Long> lastEnumeratedSnapshotId = Optional.empty();
+    if (in.readBoolean()) {
+      lastEnumeratedSnapshotId = Optional.of(in.readLong());
     }
     // deserialize assigner state
     final int assignerSerializerVersion = in.readInt();
     SplitAssignerStateT assignerState = assignerSerializer
         .deserialize(assignerSerializerVersion, in);
-    return new IcebergEnumState<>(snapshotIdOpt, assignerState);
+    return new IcebergEnumState<>(lastEnumeratedSnapshotId, assignerState);
   }
 }
