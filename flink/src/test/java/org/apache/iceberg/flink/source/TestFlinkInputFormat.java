@@ -95,7 +95,7 @@ public class TestFlinkInputFormat extends TestFlinkSource {
       expected.add(Row.of(nested, record.get(0)));
     }
 
-    assertRows(result, expected);
+    TestHelpers.assertRows(result, expected);
   }
 
   @Test

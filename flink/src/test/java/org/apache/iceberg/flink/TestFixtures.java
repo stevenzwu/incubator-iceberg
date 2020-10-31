@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink;
 
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -41,6 +42,8 @@ public class TestFixtures {
       .identity("dt")
       .bucket("id", 1)
       .build();
+
+  public static final RowType ROW_TYPE = FlinkSchemaUtil.convert(SCHEMA);
 
   public static final String DATABASE = "default";
   public static final String TABLE = "t";

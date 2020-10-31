@@ -17,17 +17,29 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source;
+package org.apache.iceberg.flink.source.util;
 
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
+import javax.annotation.Nullable;
 
-public interface IcebergSourceOptions {
+/**
+ * Copied from Flink master branch
+ */
+public abstract class RecyclableIterator<E> implements BulkFormat.RecordIterator<E> {
 
-  ConfigOption<Integer> READER_FETCH_BATCH_SIZE = ConfigOptions
-      .key("source.iceberg.reader.fetch-batch-size")
-      .intType()
-      .defaultValue(2048)
-      .withDescription("The target batch size for split reader fetch.");
+  @Nullable
+  private final Runnable recycler;
 
+  /**
+   * Creates a {@code RecyclableIterator} with the given optional recycler.
+   */
+  protected RecyclableIterator(@Nullable Runnable recycler) {
+    this.recycler = recycler;
+  }
+
+  @Override
+  public void releaseBatch() {
+    if (recycler != null) {
+      recycler.run();
+    }
+  }
 }
