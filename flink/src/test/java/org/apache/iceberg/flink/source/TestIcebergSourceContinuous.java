@@ -98,7 +98,7 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
     final DataStream<Row> stream = env.fromSource(
         IcebergSource.<RowData>useSimpleAssigner()
             .tableLoader(tableLoader)
-            .iteratorFactory(new RowDataIteratorFactory())
+            .bulkFormat(null)
             .scanContext(new ScanContext()
                 .project(table.schema()))
             .continuousEnumSettings(ContinuousEnumConfig.builder()

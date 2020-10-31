@@ -21,86 +21,50 @@ package org.apache.iceberg.flink.source.reader;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Queue;
 import javax.annotation.Nullable;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connector.base.source.reader.RecordsBySplits;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
-import org.apache.iceberg.flink.TableInfo;
-import org.apache.iceberg.flink.source.DataIterator;
-import org.apache.iceberg.flink.source.IcebergSourceOptions;
-import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.util.BulkFormat;
+import org.apache.iceberg.flink.source.util.CheckpointedPosition;
+import org.apache.iceberg.flink.source.util.RecordAndPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, IcebergSourceSplit> {
+public class IcebergSourceSplitReader<T> implements SplitReader<T, IcebergSourceSplit> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceSplitReader.class);
 
-  private final int batchSize;
-  private final DataIteratorFactory<T> iteratorFactory;
-  private final TableInfo tableInfo;
-  private final ScanContext scanContext;
+  private final Configuration config;
+  private final BulkFormat<T, IcebergSourceSplit> readerFactory;
   private final Queue<IcebergSourceSplit> splits;
 
-  // cache the splitId to avoid repeated computation
-  @Nullable private String currentSplitId;
-  @Nullable private DataIterator<T> currentIterator;
-  private long currentPosition = 0L;
-
-  private volatile boolean wakeUp = false;
+  @Nullable
+  private BulkFormat.Reader<T> currentReader;
+  @Nullable
+  private String currentSplitId;
 
   public IcebergSourceSplitReader(
       Configuration config,
-      DataIteratorFactory<T> iteratorFactory,
-      TableInfo tableInfo,
-      ScanContext scanContext) {
-    this.batchSize = config.get(IcebergSourceOptions.READER_FETCH_BATCH_SIZE);
-    this.iteratorFactory = iteratorFactory;
-    this.tableInfo = tableInfo;
-    this.scanContext = scanContext;
+      BulkFormat<T, IcebergSourceSplit> readerFactory) {
+    this.config = config;
+    this.readerFactory = readerFactory;
     this.splits = new ArrayDeque<>();
   }
 
   @Override
-  public RecordsWithSplitIds<RecordAndPosition<T>> fetch() throws InterruptedException {
-    setupIterator();
+  public RecordsWithSplitIds<T> fetch() {
+    return null;
+  }
 
-    final RecordsBySplits<RecordAndPosition<T>> result = new RecordsBySplits<>();
-    if (currentIterator == null) {
-      LOG.debug("iterator is null. skip fetch");
-      return result;
-    }
-
-    final List<RecordAndPosition<T>> fetchedRecords = new ArrayList<>(batchSize);
-    while (!wakeUp &&
-        currentIterator.hasNext() &&
-        fetchedRecords.size() < batchSize) {
-      fetchedRecords.add(new RecordAndPosition(currentIterator.next(), currentPosition));
-      currentPosition++;
-    }
-    result.addAll(currentSplitId, fetchedRecords);
-
-    if (!currentIterator.hasNext()) {
-      result.addFinishedSplit(currentSplitId);
-      try {
-        currentIterator.close();
-      } catch (IOException e) {
-        LOG.error("Failed to close iterator for split: {}", currentSplitId, e);
-      } finally {
-        currentSplitId = null;
-        currentIterator = null;
-        currentPosition = 0L;
-      }
-    }
-
-    wakeUp = false;
-    return result;
+  // TODO: replace the above fetch once upgrade to 1.11.3
+  public org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<T>> fetchNew() throws IOException {
+    checkSplitOrStartNext();
+    final BulkFormat.RecordIterator<T> nextBatch = currentReader.readBatch();
+    return nextBatch == null ? finishSplit() : FileRecords.forRecords(currentSplitId, nextBatch);
   }
 
   @Override
@@ -119,45 +83,29 @@ public class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPositio
 
   @Override
   public void wakeUp() {
-    wakeUp = true;
   }
 
-  private void setupIterator() throws InterruptedException {
-    if (currentIterator != null) {
+  private void checkSplitOrStartNext() throws IOException {
+    if (currentReader != null) {
       return;
     }
-    final IcebergSourceSplit split = splits.poll();
-    if (split == null) {
-      LOG.debug("no split available");
-      return;
+    final IcebergSourceSplit nextSplit = splits.poll();
+    if (nextSplit == null) {
+      throw new IOException("No split remaining");
     }
+    currentSplitId = nextSplit.splitId();
+    final CheckpointedPosition position = nextSplit.checkpointedPosition();
+    currentReader = position != null ? readerFactory.restoreReader(config, nextSplit)
+        : readerFactory.createReader(config, nextSplit);
+  }
 
-    final String newSplitId = split.splitId();
-    final DataIterator<T> newIterator = iteratorFactory
-        .createIterator(split, tableInfo, scanContext, false);
-    long newPosition = 0L;
-
-    // skip already processed records
-    while (!wakeUp && newIterator.hasNext() &&
-        newPosition < split.startingPosition()) {
-      newIterator.next();
-      newPosition++;
+  private FileRecords<T> finishSplit() throws IOException {
+    if (currentReader != null) {
+      currentReader.close();
+      currentReader = null;
     }
-
-    if (wakeUp) {
-      wakeUp = false;
-      return;
-    }
-
-    if (currentPosition < split.startingPosition()) {
-      throw new IllegalStateException(String.format(
-          "Split doesn't contain. This indicates some bug in reader code. " +
-              "startingPosition = %d, splitId = %s",
-          split.startingPosition(), split.splitId()));
-    }
-
-    currentSplitId = newSplitId;
-    currentIterator = newIterator;
-    currentPosition = newPosition;
+    final FileRecords<T> finishRecords = FileRecords.finishedSplit(currentSplitId);
+    currentSplitId = null;
+    return finishRecords;
   }
 }

@@ -54,6 +54,7 @@ import org.apache.iceberg.flink.source.reader.DataIteratorFactory;
 import org.apache.iceberg.flink.source.reader.IcebergSourceReader;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
+import org.apache.iceberg.flink.source.util.BulkFormat;
 
 @Experimental
 public class IcebergSource<T,
@@ -66,7 +67,7 @@ public class IcebergSource<T,
   private final TableLoader tableLoader;
   private final ContinuousEnumConfig contEnumSettings;
   private final ScanContext scanContext;
-  private final DataIteratorFactory<T> iteratorFactory;
+  private final BulkFormat<T, IcebergSourceSplit> bulkFormat;
   private final SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
       SplitAssignerStateSerializerT> assignerFactory;
 
@@ -77,7 +78,7 @@ public class IcebergSource<T,
       TableLoader tableLoader,
       @Nullable ContinuousEnumConfig contEnumSettings,
       ScanContext scanContext,
-      DataIteratorFactory<T> iteratorFactory,
+      BulkFormat<T, IcebergSourceSplit> bulkFormat,
       SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
           SplitAssignerStateSerializerT> assignerFactory) {
 
@@ -85,7 +86,7 @@ public class IcebergSource<T,
     this.tableLoader = tableLoader;
     this.contEnumSettings = contEnumSettings;
     this.scanContext = scanContext;
-    this.iteratorFactory = iteratorFactory;
+    this.bulkFormat = bulkFormat;
     this.assignerFactory = assignerFactory;
 
     // extract serializable table info once during construction
@@ -121,9 +122,7 @@ public class IcebergSource<T,
         elementsQueue,
         config,
         readerContext,
-        tableInfo,
-        scanContext,
-        iteratorFactory);
+        bulkFormat);
   }
 
   @Override
@@ -207,7 +206,7 @@ public class IcebergSource<T,
 
     // required
     private TableLoader tableLoader;
-    private DataIteratorFactory<T> iteratorFactory;
+    private BulkFormat<T, IcebergSourceSplit> bulkFormat;
 
     // optional
     private Configuration config;
@@ -228,8 +227,8 @@ public class IcebergSource<T,
     }
 
     public Builder<T, SplitAssignerStateT, SplitAssignerT,
-        SplitAssignerStateSerializerT> iteratorFactory(DataIteratorFactory<T> newIteratorFactory) {
-      this.iteratorFactory = newIteratorFactory;
+        SplitAssignerStateSerializerT> bulkFormat(BulkFormat<T, IcebergSourceSplit> newBulkFormat) {
+      this.bulkFormat = newBulkFormat;
       return this;
     }
 
@@ -258,13 +257,13 @@ public class IcebergSource<T,
           tableLoader,
           contEnumSettings,
           scanContext,
-          iteratorFactory,
+          bulkFormat,
           assignerFactory);
     }
 
     private void checkRequired() {
       Preconditions.checkNotNull(tableLoader, "tableLoader is required.");
-      Preconditions.checkNotNull(iteratorFactory, "iteratorFactory is required.");
+      Preconditions.checkNotNull(bulkFormat, "bulkFormat is required.");
     }
   }
 }

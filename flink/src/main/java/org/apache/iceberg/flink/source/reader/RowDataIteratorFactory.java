@@ -32,8 +32,7 @@ public class RowDataIteratorFactory implements DataIteratorFactory<RowData> {
   public DataIterator<RowData> createIterator(
       IcebergSourceSplit split,
       TableInfo tableInfo,
-      ScanContext scanContext,
-      boolean reuse) {
+      ScanContext scanContext) {
     return new RowDataIterator(
         split.task(),
         tableInfo.fileIO(),
@@ -41,8 +40,7 @@ public class RowDataIteratorFactory implements DataIteratorFactory<RowData> {
         tableInfo.schema(),
         scanContext.projectedSchema(),
         scanContext.nameMapping(),
-        scanContext.caseSensitive(),
-        reuse);
+        scanContext.caseSensitive());
   }
 
 }
