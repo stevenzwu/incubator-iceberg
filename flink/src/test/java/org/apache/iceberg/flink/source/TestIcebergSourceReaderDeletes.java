@@ -90,7 +90,7 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
       final DataStream<RowData> stream = env.fromSource(
           IcebergSource.<RowData>useSimpleAssigner()
               .tableLoader(tableLoader)
-              .iteratorFactory(new RowDataIteratorFactory())
+              .bulkFormat(null)
               .scanContext(scanContext)
               .build(),
           WatermarkStrategy.noWatermarks(),

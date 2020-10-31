@@ -26,14 +26,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.conversion.DataStructureConverter;
-import org.apache.flink.table.data.conversion.DataStructureConverters;
-import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.test.util.AbstractTestBase;
 import org.apache.flink.types.Row;
 import org.apache.hadoop.conf.Configuration;
@@ -43,16 +38,14 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TestHelpers;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.GenericAppenderHelper;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
-import org.apache.iceberg.flink.FlinkSchemaUtil;
-import org.apache.iceberg.flink.RowDataConverter;
 import org.apache.iceberg.flink.TableLoader;
+import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -130,7 +123,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     Table table = catalog.createTable(tableIdentifier, SCHEMA);
     List<Record> expectedRecords = RandomGenericData.generate(SCHEMA, 2, 0L);
     new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER).appendToTable(expectedRecords);
-    assertRecords(run(), expectedRecords, SCHEMA);
+    TestHelpers.assertRecords(run(), expectedRecords, SCHEMA);
   }
 
   @Test
@@ -140,7 +133,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     expectedRecords.get(0).set(2, "2020-03-20");
     new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER).appendToTable(
         org.apache.iceberg.TestHelpers.Row.of("2020-03-20", 0), expectedRecords);
-    assertRecords(run(), expectedRecords, SCHEMA);
+    TestHelpers.assertRecords(run(), expectedRecords, SCHEMA);
   }
 
   @Test
@@ -231,12 +224,12 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     waitUntilAfter(timestampMillis);
     helper.appendToTable(RandomGenericData.generate(SCHEMA, 1, 0L));
 
-    assertRecords(
+    TestHelpers.assertRecords(
         runWithOptions(ImmutableMap.<String, String>builder()
             .put("snapshot-id", Long.toString(snapshotId))
             .build()),
         expectedRecords, SCHEMA);
-    assertRecords(
+    TestHelpers.assertRecords(
         runWithOptions(ImmutableMap.<String, String>builder()
             .put("as-of-timestamp", Long.toString(timestampMillis))
             .build()),
@@ -267,7 +260,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     List<Record> expected2 = Lists.newArrayList();
     expected2.addAll(records2);
     expected2.addAll(records3);
-    assertRecords(runWithOptions(
+    TestHelpers.assertRecords(runWithOptions(
         ImmutableMap.<String, String>builder()
             .put("start-snapshot-id", Long.toString(snapshotId1))
             .put("end-snapshot-id", Long.toString(snapshotId3)).build()),
@@ -283,11 +276,11 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     expectedRecords.get(1).set(2, "2020-03-20");
 
     GenericAppenderHelper helper = new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER);
-    DataFile dataFile1 = helper.writeFile(TestHelpers.Row.of("2020-03-20", 0), expectedRecords);
-    DataFile dataFile2 = helper.writeFile(TestHelpers.Row.of("2020-03-21", 0),
+    DataFile dataFile1 = helper.writeFile(org.apache.iceberg.TestHelpers.Row.of("2020-03-20", 0), expectedRecords);
+    DataFile dataFile2 = helper.writeFile(org.apache.iceberg.TestHelpers.Row.of("2020-03-21", 0),
         RandomGenericData.generate(SCHEMA, 2, 0L));
     helper.appendToTable(dataFile1, dataFile2);
-    assertRecords(runWithFilter(
+    TestHelpers.assertRecords(runWithFilter(
         Expressions.equal("dt", "2020-03-20"), "where dt='2020-03-20'"),
         expectedRecords,
         SCHEMA);
@@ -311,7 +304,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
     List<Record> records = RandomGenericData.generate(typesSchema, 10, 0L);
     GenericAppenderHelper appender = new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER);
     for (Record record : records) {
-      TestHelpers.Row partition = TestHelpers.Row.of(
+      org.apache.iceberg.TestHelpers.Row partition = org.apache.iceberg.TestHelpers.Row.of(
           record.get(1),
           record.get(2),
           record.get(3),
@@ -321,26 +314,11 @@ public abstract class TestFlinkScan extends AbstractTestBase {
       appender.appendToTable(partition, Collections.singletonList(record));
     }
 
-    assertRecords(run(), records, typesSchema);
-  }
-
-  public static void assertRecords(List<Row> results, List<Record> expectedRecords, Schema schema) {
-    List<Row> expected = Lists.newArrayList();
-    @SuppressWarnings("unchecked")
-    DataStructureConverter<RowData, Row> converter = (DataStructureConverter) DataStructureConverters.getConverter(
-        TypeConversions.fromLogicalToDataType(FlinkSchemaUtil.convert(schema)));
-    expectedRecords.forEach(r -> expected.add(converter.toExternal(RowDataConverter.convert(schema, r))));
-    assertRows(results, expected);
+    TestHelpers.assertRecords(run(), records, typesSchema);
   }
 
   private static void assertRows(List<Row> results, Row... expected) {
-    assertRows(results, Arrays.asList(expected));
-  }
-
-  static void assertRows(List<Row> results, List<Row> expected) {
-    expected.sort(Comparator.comparing(Row::toString));
-    results.sort(Comparator.comparing(Row::toString));
-    Assert.assertEquals(expected, results);
+    TestHelpers.assertRows(results, Arrays.asList(expected));
   }
 
   private static void waitUntilAfter(long timestampMillis) {

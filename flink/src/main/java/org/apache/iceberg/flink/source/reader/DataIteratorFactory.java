@@ -30,7 +30,6 @@ public interface DataIteratorFactory<T> extends Serializable {
   DataIterator<T> createIterator(
       IcebergSourceSplit split,
       TableInfo tableInfo,
-      ScanContext scanContext,
-      boolean reuse);
+      ScanContext scanContext);
 
 }

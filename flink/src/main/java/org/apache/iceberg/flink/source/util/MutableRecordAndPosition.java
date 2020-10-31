@@ -17,17 +17,32 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source;
+package org.apache.iceberg.flink.source.util;
 
-import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
+public class MutableRecordAndPosition<E> extends RecordAndPosition<E> {
 
-public interface IcebergSourceOptions {
+  /**
+   * Updates the record and position in this object.
+   */
+  public void set(E record, long offset, long recordSkipCount) {
+    setRecord(record);
+    setOffset(offset);
+    setRecordSkipCount(recordSkipCount);
+  }
 
-  ConfigOption<Integer> READER_FETCH_BATCH_SIZE = ConfigOptions
-      .key("source.iceberg.reader.fetch-batch-size")
-      .intType()
-      .defaultValue(2048)
-      .withDescription("The target batch size for split reader fetch.");
+  /**
+   * Sets the position without setting a record.
+   */
+  public void setPosition(long offset, long recordSkipCount) {
+    setOffset(offset);
+    setRecordSkipCount(recordSkipCount);
+  }
 
+  /**
+   * Sets the next record of a sequence. This increments the {@code recordSkipCount} by one.
+   */
+  public void setNext(E record) {
+    setRecord(record);
+    setRecordSkipCount(getRecordSkipCount() + 1);
+  }
 }

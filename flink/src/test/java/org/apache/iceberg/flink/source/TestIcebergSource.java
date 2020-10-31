@@ -102,7 +102,7 @@ public class TestIcebergSource extends TestFlinkScan {
     final DataStream<RowData> stream = env.fromSource(
         IcebergSource.<RowData>useSimpleAssigner()
             .tableLoader(tableLoader())
-            .iteratorFactory(new RowDataIteratorFactory())
+            .bulkFormat(null)
             .config(config)
             .scanContext(scanContext)
         .build(),
