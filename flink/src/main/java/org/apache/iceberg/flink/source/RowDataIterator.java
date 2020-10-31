@@ -21,12 +21,7 @@ package org.apache.iceberg.flink.source;
 
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.flink.api.common.ExecutionConfig;
-import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.types.InternalSerializers;
-import org.apache.flink.table.types.logical.LogicalType;
-import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
@@ -41,6 +36,7 @@ import org.apache.iceberg.flink.data.FlinkAvroReader;
 import org.apache.iceberg.flink.data.FlinkOrcReader;
 import org.apache.iceberg.flink.data.FlinkParquetReaders;
 import org.apache.iceberg.flink.data.RowDataUtil;
+import org.apache.iceberg.flink.source.util.CheckpointedPosition;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.FileIO;
@@ -59,33 +55,20 @@ public class RowDataIterator extends DataIterator<RowData> {
   private final Schema projectedSchema;
   private final String nameMapping;
   private final boolean caseSensitive;
-  private final boolean reuse;
-  @Nullable private final RowType rowType;
-  @Nullable private final TypeSerializer[] fieldSerializers;
 
   public RowDataIterator(CombinedScanTask task, FileIO io, EncryptionManager encryption, Schema tableSchema,
                          Schema projectedSchema, String nameMapping, boolean caseSensitive) {
-    this(task, io, encryption, tableSchema, projectedSchema, nameMapping, caseSensitive, true);
+    this(task, io, encryption, tableSchema, projectedSchema, nameMapping, caseSensitive, null);
   }
 
   public RowDataIterator(CombinedScanTask task, FileIO io, EncryptionManager encryption, Schema tableSchema,
-                  Schema projectedSchema, String nameMapping, boolean caseSensitive, boolean reuse) {
-    super(task, io, encryption);
+                         Schema projectedSchema, String nameMapping, boolean caseSensitive,
+                         @Nullable CheckpointedPosition checkpointedPosition) {
+    super(task, io, encryption, checkpointedPosition);
     this.tableSchema = tableSchema;
     this.projectedSchema = projectedSchema;
     this.nameMapping = nameMapping;
     this.caseSensitive = caseSensitive;
-    this.reuse = reuse;
-    if (reuse) {
-      this.rowType = null;
-      this.fieldSerializers = null;
-    } else {
-      this.rowType = FlinkSchemaUtil.convert(projectedSchema);
-      ExecutionConfig config = new ExecutionConfig();
-      this.fieldSerializers = rowType.getChildren().stream()
-          .map((LogicalType type) -> InternalSerializers.create(type, config))
-          .toArray(TypeSerializer[]::new);
-    }
   }
 
   @Override
@@ -97,11 +80,6 @@ public class RowDataIterator extends DataIterator<RowData> {
 
     FlinkDeleteFilter deletes = new FlinkDeleteFilter(task, tableSchema, projectedSchema);
     CloseableIterable<RowData> iterable = deletes.filter(newIterable(task, deletes.requiredSchema(), idToConstant));
-    if (!reuse) {
-      iterable = CloseableIterable.transform(iterable,
-          rowData -> RowDataUtil.clone(rowData, rowType, fieldSerializers));
-    }
-
     return iterable.iterator();
   }
 

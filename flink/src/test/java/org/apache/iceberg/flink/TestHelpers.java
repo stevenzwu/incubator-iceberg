@@ -26,7 +26,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +49,7 @@ import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.flink.data.RowDataUtil;
 import org.apache.iceberg.flink.source.FlinkInputFormat;
@@ -96,6 +99,21 @@ public class TestHelpers {
         .map(converter::toExternal)
         .map(Row.class::cast)
         .collect(Collectors.toList());
+  }
+
+  public static void assertRecords(List<Row> results, List<Record> expectedRecords, Schema schema) {
+    List<Row> expected = Lists.newArrayList();
+    @SuppressWarnings("unchecked")
+    DataStructureConverter<RowData, Row> converter = (DataStructureConverter) DataStructureConverters.getConverter(
+        TypeConversions.fromLogicalToDataType(FlinkSchemaUtil.convert(schema)));
+    expectedRecords.forEach(r -> expected.add(converter.toExternal(RowDataConverter.convert(schema, r))));
+    assertRows(results, expected);
+  }
+  
+  public static void assertRows(List<Row> results, List<Row> expected) {
+    expected.sort(Comparator.comparing(Row::toString));
+    results.sort(Comparator.comparing(Row::toString));
+    Assert.assertEquals(expected, results);
   }
 
   public static void assertRowData(Types.StructType structType, LogicalType rowType, Record expectedRecord,

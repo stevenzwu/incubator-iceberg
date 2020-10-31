@@ -26,31 +26,27 @@ import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
 import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
-import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
-import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.util.BulkFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IcebergSourceReader<T> extends
-    SingleThreadMultiplexSourceReaderBase<RecordAndPosition<T>, T, IcebergSourceSplit, IcebergSourceSplitState> {
+    SingleThreadMultiplexSourceReaderBase<T, T, IcebergSourceSplit, IcebergSourceSplitState> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceReader.class);
 
   public IcebergSourceReader(
       FutureNotifier futureNotifier,
-      FutureCompletingBlockingQueue<RecordsWithSplitIds<RecordAndPosition<T>>> elementsQueue,
+      FutureCompletingBlockingQueue<RecordsWithSplitIds<T>> elementsQueue,
       Configuration config,
       SourceReaderContext context,
-      TableInfo tableInfo,
-      ScanContext scanContext,
-      DataIteratorFactory<T> iteratorFactory) {
+      BulkFormat<T, IcebergSourceSplit> readerFormat) {
     super(
         futureNotifier,
         elementsQueue,
-        () -> new IcebergSourceSplitReader<>(
-            config, iteratorFactory, tableInfo, scanContext),
+        () -> new IcebergSourceSplitReader<>(config, readerFormat),
         new IcebergSourceRecordEmitter(),
         config,
         context);

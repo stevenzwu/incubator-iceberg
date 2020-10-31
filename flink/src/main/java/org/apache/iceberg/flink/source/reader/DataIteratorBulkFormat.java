@@ -19,21 +19,9 @@
 
 package org.apache.iceberg.flink.source.reader;
 
-public class RecordAndPosition<T> {
-  private T record;
-  private long currentPosition;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.util.BulkFormat;
 
-  public RecordAndPosition(T record, long currentPosition) {
-    this.record = record;
-    this.currentPosition = currentPosition;
-  }
-
-  public T record() {
-    return record;
-  }
-
-  public long currentPosition() {
-    return currentPosition;
-  }
+public abstract class DataIteratorBulkFormat<T> implements BulkFormat<T, IcebergSourceSplit> {
 
 }

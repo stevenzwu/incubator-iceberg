@@ -103,7 +103,7 @@ public class TestFlinkScanSql extends TestFlinkSource {
     helper.appendToTable(dataFile1, dataFile2);
 
     Expression filter = Expressions.and(Expressions.equal("dt", "2020-03-20"), Expressions.equal("id", 123));
-    assertRecords(runWithFilter(filter, "where dt='2020-03-20' and id=123"), expectedRecords, SCHEMA);
+    org.apache.iceberg.flink.TestHelpers.assertRecords(runWithFilter(filter, "where dt='2020-03-20' and id=123"), expectedRecords, SCHEMA);
   }
 
   private List<Row> executeSQL(String sql) {

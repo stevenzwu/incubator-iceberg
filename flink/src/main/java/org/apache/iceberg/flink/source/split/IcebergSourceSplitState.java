@@ -27,26 +27,35 @@ import org.apache.iceberg.CombinedScanTask;
 public class IcebergSourceSplitState {
 
   private final CombinedScanTask task;
-  private long currentPosition;
+  private long offset;
+  private long recordsToSkipAfterOffset;
 
-  IcebergSourceSplitState(CombinedScanTask task, long currentPosition) {
+  public IcebergSourceSplitState(CombinedScanTask task, long offset, long recordsToSkipAfterOffset) {
     this.task = task;
-    this.currentPosition = currentPosition;
+    this.offset = offset;
+    this.recordsToSkipAfterOffset = recordsToSkipAfterOffset;
   }
 
   public static IcebergSourceSplitState fromSplit(IcebergSourceSplit split) {
-    return new IcebergSourceSplitState(split.task(), split.startingPosition());
+    return new IcebergSourceSplitState(split.task(),
+        split.checkpointedPosition().getOffset(),
+        split.checkpointedPosition().getRecordsAfterOffset());
   }
 
   public CombinedScanTask task() {
     return task;
   }
 
-  public long currentPosition() {
-    return currentPosition;
+  public long offset() {
+    return offset;
   }
 
-  public void currentPosition(long position) {
-    this.currentPosition = position;
+  public long recordsToSkipAfterOffset() {
+    return recordsToSkipAfterOffset;
+  }
+
+  public void updatePosition(long newOffset, long newRecordsToSkipAfterOffset) {
+    this.offset = newOffset;
+    this.recordsToSkipAfterOffset = newRecordsToSkipAfterOffset;
   }
 }
