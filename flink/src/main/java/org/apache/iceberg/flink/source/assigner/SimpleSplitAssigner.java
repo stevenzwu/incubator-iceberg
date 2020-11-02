@@ -21,19 +21,24 @@ package org.apache.iceberg.flink.source.assigner;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
 /**
- * This assigner hands out splits without any guarantee
- * in order or locality
+ * This assigner hands out splits without any guarantee in order or locality.
+ *
+ * Since all methods are executed by the source coordinator thread,
+ * there is no need for locking.
  */
 public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerState> {
 
   private final Queue<IcebergSourceSplit> pendingSplits;
   private volatile boolean noMoreSplits;
-  private final Queue<CompletableFuture<IcebergSourceSplit>> pendingFutures;
+  private final Map<Integer, Queue<CompletableFuture<IcebergSourceSplit>>> pendingFutures;
 
   public SimpleSplitAssigner() {
     this(new SimpleSplitAssignerState());
@@ -42,7 +47,7 @@ public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerSta
   public SimpleSplitAssigner(SimpleSplitAssignerState state) {
     this.pendingSplits = new ArrayDeque<>(state.getPendingSplits());
     this.noMoreSplits = state.noMoreSplits();
-    this.pendingFutures = new ArrayDeque<>();
+    this.pendingFutures = new LinkedHashMap<>();
   }
 
   @Override
@@ -59,6 +64,13 @@ public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerSta
   }
 
   @Override
+  public void onAddedReader(int subtaskId) {
+    // clear up pending futures for the reader
+    // maybe orphaned before the reader restart.
+    pendingFutures.remove(subtaskId);
+  }
+
+  @Override
   public void onSplitsCompletion(int subtask, Collection<String> completedSplitIds) {
     // no-op
   }
@@ -69,8 +81,10 @@ public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerSta
     IcebergSourceSplit split = pendingSplits.poll();
     if (split == null && !noMoreSplits) {
       // more splits may be discovered later
-      pendingFutures.add(future);
+      pendingFutures.computeIfAbsent(subtask, ignored -> new ArrayDeque<>());
+      pendingFutures.get(subtask).add(future);
     } else {
+      // complete the future with a valid split or null (noMoreSplits)
       future.complete(split);
     }
     return future;
@@ -83,17 +97,25 @@ public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerSta
 
   private void completePendingFuturesIfNeeded() {
     // first check if there are splits available to complete pending futures
-    while (!pendingSplits.isEmpty() && !pendingFutures.isEmpty()) {
-      IcebergSourceSplit split = pendingSplits.poll();
-      CompletableFuture<IcebergSourceSplit> future = pendingFutures.poll();
+    final Iterator<Map.Entry<Integer, Queue<CompletableFuture<IcebergSourceSplit>>>> awaitingReaderIter =
+        pendingFutures.entrySet().iterator();
+    while (!pendingSplits.isEmpty() && awaitingReaderIter.hasNext()) {
+      final IcebergSourceSplit split = pendingSplits.poll();
+      final Queue<CompletableFuture<IcebergSourceSplit>> futures = awaitingReaderIter.next().getValue();
+      final CompletableFuture<IcebergSourceSplit> future = futures.poll();
       future.complete(split);
+      if (futures.isEmpty()) {
+        awaitingReaderIter.remove();
+      }
     }
     // if pending splits queue is empty and noMoreSplits is true,
     // complete all remaining pending futures with null.
-    if (pendingSplits.isEmpty() && noMoreSplits) {
-      while (!pendingFutures.isEmpty()) {
-        pendingFutures.poll().complete(null);
+    while (noMoreSplits && awaitingReaderIter.hasNext()) {
+      final Queue<CompletableFuture<IcebergSourceSplit>> futures = awaitingReaderIter.next().getValue();
+      while (!futures.isEmpty()) {
+        futures.poll().complete(null);
       }
+      awaitingReaderIter.remove();
     }
   }
 }
