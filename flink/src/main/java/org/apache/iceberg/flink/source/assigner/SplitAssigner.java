@@ -41,6 +41,15 @@ public interface SplitAssigner<SplitAssignerStateT extends SplitAssignerState> {
   void onNoMoreSplits();
 
   /**
+   * Handle the reader registration.
+   * E.g., clear out orphaned pending futures for the reader
+   * before the reader restart.
+   *
+   * @param subtaskId the subtaskId of the new reader.
+   */
+  void onAddedReader(int subtaskId);
+
+  /**
    * Notify assigner when splits are finished
    * in case assigner needs to do some bookkeeping work.
    * E.g. Event time aligned assinger may need to advance the watermark
