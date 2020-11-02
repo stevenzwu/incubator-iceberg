@@ -71,6 +71,7 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
     final CatalogLoader hiveCatalogLoader = CatalogLoader.hive(catalog.name(),
         hiveConf,
         hiveConf.get(HiveConf.ConfVars.METASTOREURIS.varname),
+        hiveConf.get(HiveConf.ConfVars.METASTOREWAREHOUSE.varname),
         hiveConf.getInt("iceberg.hive.client-pool-size", 5));
 
     try (TableLoader tableLoader = TableLoader.fromCatalog(
