@@ -19,7 +19,10 @@
 
 package org.apache.iceberg.flink.source;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.flink.table.data.RowData;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
@@ -28,6 +31,8 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.DeleteFilter;
+import org.apache.iceberg.encryption.EncryptedFiles;
+import org.apache.iceberg.encryption.EncryptedInputFile;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.RowDataWrapper;
@@ -42,21 +47,29 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.orc.ORC;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.PartitionUtil;
 
 class RowDataIterator extends DataIterator<RowData> {
 
+  private final FileIO io;
+  private final EncryptionManager encryption;
   private final Schema tableSchema;
   private final Schema projectedSchema;
   private final String nameMapping;
   private final boolean caseSensitive;
 
+  private Map<String, InputFile> inputFiles;
+
   RowDataIterator(CombinedScanTask task, FileIO io, EncryptionManager encryption, Schema tableSchema,
                   Schema projectedSchema, String nameMapping, boolean caseSensitive) {
-    super(task, io, encryption);
+    super(task);
+    this.io = io;
+    this.encryption = encryption;
     this.tableSchema = tableSchema;
     this.projectedSchema = projectedSchema;
     this.nameMapping = nameMapping;
@@ -65,6 +78,8 @@ class RowDataIterator extends DataIterator<RowData> {
 
   @Override
   protected CloseableIterator<RowData> openTaskIterator(FileScanTask task) {
+    this.inputFiles = setupInputFiles(task);
+
     Schema partitionSchema = TypeUtil.select(projectedSchema, task.spec().identitySourceIds());
 
     Map<Integer, ?> idToConstant = partitionSchema.columns().isEmpty() ? ImmutableMap.of() :
@@ -74,6 +89,32 @@ class RowDataIterator extends DataIterator<RowData> {
     CloseableIterable<RowData> iterable = deletes.filter(newIterable(task, deletes.requiredSchema(), idToConstant));
 
     return iterable.iterator();
+  }
+
+  Map<String, InputFile> setupInputFiles(FileScanTask task) {
+    Map<String, ByteBuffer> keyMetadata = Maps.newHashMap();
+    Arrays.asList(task).stream()
+        .flatMap(fileScanTask -> Stream.concat(Stream.of(fileScanTask.file()), fileScanTask.deletes().stream()))
+        .forEach(file -> keyMetadata.put(file.path().toString(), file.keyMetadata()));
+    Stream<EncryptedInputFile> encrypted = keyMetadata.entrySet().stream()
+        .map(entry -> EncryptedFiles.encryptedInput(io.newInputFile(entry.getKey()), entry.getValue()));
+
+    // decrypt with the batch call to avoid multiple RPCs to a key server, if possible
+    Iterable<InputFile> decryptedFiles = encryption.decrypt(encrypted::iterator);
+
+    ImmutableMap.Builder<String, InputFile> inputFileBuilder = ImmutableMap.builder();
+    decryptedFiles.forEach(decrypted -> inputFileBuilder.put(decrypted.location(), decrypted));
+    return inputFileBuilder.build();
+  }
+
+  InputFile getInputFile(FileScanTask task) {
+    Preconditions.checkArgument(!task.isDataTask(), "Invalid task type");
+
+    return inputFiles.get(task.file().path().toString());
+  }
+
+  InputFile getInputFile(String location) {
+    return inputFiles.get(location);
   }
 
   private CloseableIterable<RowData> newIterable(FileScanTask task, Schema schema, Map<Integer, ?> idToConstant) {
