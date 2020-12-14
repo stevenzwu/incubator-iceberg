@@ -19,8 +19,8 @@
 
 package org.apache.iceberg.flink.source.reader;
 
+import org.apache.flink.connector.file.src.reader.BulkFormat;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.util.BulkFormat;
 
 public abstract class DataIteratorBulkFormat<T> implements BulkFormat<T, IcebergSourceSplit> {
 

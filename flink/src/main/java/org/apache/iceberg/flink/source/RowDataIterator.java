@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source;
 
 import java.util.Map;
 import javax.annotation.Nullable;
+import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.flink.table.data.RowData;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
@@ -36,7 +37,6 @@ import org.apache.iceberg.flink.data.FlinkAvroReader;
 import org.apache.iceberg.flink.data.FlinkOrcReader;
 import org.apache.iceberg.flink.data.FlinkParquetReaders;
 import org.apache.iceberg.flink.data.RowDataUtil;
-import org.apache.iceberg.flink.source.util.CheckpointedPosition;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.FileIO;

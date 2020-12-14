@@ -115,14 +115,15 @@ public class TestFlinkInputFormat extends TestFlinkSource {
         .field("id", DataTypes.BIGINT())
         .field("data", DataTypes.STRING())
         .build();
-    List<Row> result = runFormat(FlinkSource.forRowData().tableLoader(loader()).project(projectedSchema).buildFormat());
+    List<Row> result = runFormat(FlinkSource.forRowData()
+        .tableLoader(tableLoader()).project(projectedSchema).buildFormat());
 
     List<Row> expected = Lists.newArrayList();
     for (Record record : writeRecords) {
       expected.add(Row.of(record.get(0), record.get(1)));
     }
 
-    assertRows(result, expected);
+    TestHelpers.assertRows(result, expected);
   }
 
   private List<Row> runFormat(FlinkInputFormat inputFormat) throws IOException {

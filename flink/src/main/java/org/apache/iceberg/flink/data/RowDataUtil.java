@@ -29,6 +29,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.runtime.typeutils.RowDataSerializer;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -74,8 +75,19 @@ public class RowDataUtil {
     return value;
   }
 
-  public static RowData clone(RowData from, RowType rowType, TypeSerializer[] fieldSerializers) {
-    GenericRowData ret = new GenericRowData(rowType.getFieldCount());
+  /**
+   * Similar to the private {@link RowDataSerializer#copyRowData(RowData, RowData)} method.
+   * This skips the check the arity of rowType and from,
+   * because the from RowData may contains additional column for position deletes.
+   * Using {@link RowDataSerializer#copy(RowData, RowData)} will fail the arity check.
+   */
+  public static RowData clone(RowData from, RowData reuse, RowType rowType, TypeSerializer[] fieldSerializers) {
+    GenericRowData ret;
+    if (reuse instanceof GenericRowData) {
+      ret = (GenericRowData) reuse;
+    } else {
+      ret = new GenericRowData(from.getArity());
+    }
     ret.setRowKind(from.getRowKind());
     for (int i = 0; i < rowType.getFieldCount(); i++) {
       if (!from.isNullAt(i)) {
@@ -87,4 +99,5 @@ public class RowDataUtil {
     }
     return ret;
   }
+
 }

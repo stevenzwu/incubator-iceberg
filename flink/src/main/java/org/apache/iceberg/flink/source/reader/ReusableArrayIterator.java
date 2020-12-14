@@ -20,10 +20,10 @@
 package org.apache.iceberg.flink.source.reader;
 
 import javax.annotation.Nullable;
-import org.apache.iceberg.flink.source.util.BulkFormat;
-import org.apache.iceberg.flink.source.util.MutableRecordAndPosition;
-import org.apache.iceberg.flink.source.util.Pool;
-import org.apache.iceberg.flink.source.util.RecordAndPosition;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.connector.file.src.util.MutableRecordAndPosition;
+import org.apache.flink.connector.file.src.util.Pool;
+import org.apache.flink.connector.file.src.util.RecordAndPosition;
 
 /**
  * Similar to the ArrayResultIterator.
