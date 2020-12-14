@@ -25,28 +25,27 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.SourceReaderOptions;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.connector.file.src.util.Pool;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.types.InternalSerializers;
-import org.apache.flink.table.runtime.typeutils.RowDataSerializer;
-import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
-import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.runtime.typeutils.InternalSerializers;
+import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.flink.TableInfo;
+import org.apache.iceberg.flink.data.RowDataUtil;
 import org.apache.iceberg.flink.source.DataIterator;
 import org.apache.iceberg.flink.source.IcebergSourceOptions;
 import org.apache.iceberg.flink.source.RowDataIterator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.util.BulkFormat;
-import org.apache.iceberg.flink.source.util.Pool;
 
 public class RowDataIteratorBulkFormat extends DataIteratorBulkFormat<RowData> {
 
   private final TableInfo tableInfo;
   private final ScanContext scanContext;
   private final RowType rowType;
-  private final RowDataSerializer serializer;
+  private final TypeSerializer[] fieldSerializers;
 
   public RowDataIteratorBulkFormat(
       TableInfo tableInfo,
@@ -55,11 +54,9 @@ public class RowDataIteratorBulkFormat extends DataIteratorBulkFormat<RowData> {
     this.tableInfo = tableInfo;
     this.scanContext = scanContext;
     this.rowType = rowType;
-    this.serializer = new RowDataSerializer(
-        rowType.getChildren().toArray(new LogicalType[0]),
-        rowType.getChildren().stream()
-            .map(InternalSerializers::create)
-            .toArray(TypeSerializer[]::new));
+    this.fieldSerializers = rowType.getChildren().stream()
+        .map(InternalSerializers::create)
+        .toArray(TypeSerializer[]::new);
   }
 
   @Override
@@ -79,7 +76,7 @@ public class RowDataIteratorBulkFormat extends DataIteratorBulkFormat<RowData> {
 
   @Override
   public TypeInformation<RowData> getProducedType() {
-    return RowDataTypeInfo.of(rowType);
+    return InternalTypeInfo.of(rowType);
   }
 
   private Reader<RowData> createReaderInternal(Configuration config, IcebergSourceSplit split) throws IOException {
@@ -119,7 +116,7 @@ public class RowDataIteratorBulkFormat extends DataIteratorBulkFormat<RowData> {
       int num = 0;
       while (inputIterator.hasNext() && num < batchSize) {
         RowData nextRecord = inputIterator.next();
-        serializer.copy(nextRecord, batch[num]);
+        RowDataUtil.clone(nextRecord, batch[num], rowType, fieldSerializers);
         num++;
         if (inputIterator.isCurrentIteratorDone()) {
           // break early so that records in the ArrayResultIterator

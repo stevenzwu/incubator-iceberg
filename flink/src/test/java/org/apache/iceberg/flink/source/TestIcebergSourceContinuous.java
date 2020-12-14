@@ -40,7 +40,6 @@ import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
-import org.apache.iceberg.flink.source.reader.RowDataIteratorFactory;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
 import org.junit.Assert;

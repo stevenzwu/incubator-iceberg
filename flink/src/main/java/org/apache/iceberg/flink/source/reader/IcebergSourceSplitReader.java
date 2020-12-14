@@ -26,16 +26,16 @@ import javax.annotation.Nullable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
-import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
+import org.apache.flink.connector.file.src.impl.FileRecords;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.connector.file.src.util.CheckpointedPosition;
+import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.util.BulkFormat;
-import org.apache.iceberg.flink.source.util.CheckpointedPosition;
-import org.apache.iceberg.flink.source.util.RecordAndPosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IcebergSourceSplitReader<T> implements SplitReader<T, IcebergSourceSplit> {
+public class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPosition<T>, IcebergSourceSplit> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceSplitReader.class);
 
   private final Configuration config;
@@ -56,33 +56,28 @@ public class IcebergSourceSplitReader<T> implements SplitReader<T, IcebergSource
   }
 
   @Override
-  public RecordsWithSplitIds<T> fetch() {
-    return null;
-  }
-
-  // TODO: replace the above fetch once upgrade to 1.11.3
-  public org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<T>> fetchNew() throws IOException {
+  public RecordsWithSplitIds<RecordAndPosition<T>> fetch() throws IOException {
     checkSplitOrStartNext();
     final BulkFormat.RecordIterator<T> nextBatch = currentReader.readBatch();
     return nextBatch == null ? finishSplit() : FileRecords.forRecords(currentSplitId, nextBatch);
   }
 
   @Override
-  public void handleSplitsChanges(Queue<SplitsChange<IcebergSourceSplit>> splitsChanges) {
-    while (!splitsChanges.isEmpty()) {
-      SplitsChange<IcebergSourceSplit> splitChange = splitsChanges.poll();
-      if (splitChange instanceof SplitsAddition) {
-        LOG.debug("Handling split change: {}", splitChange);
-        splits.addAll(splitChange.splits());
-      } else {
-        throw new UnsupportedOperationException(
-            splitChange.getClass().getName() + " is not supported");
-      }
-    }
+  public void handleSplitsChanges(SplitsChange<IcebergSourceSplit> splitsChanges) {
+    LOG.debug("Add splits to reader: {}", splitsChanges.splits());
+    splits.addAll(splitsChanges.splits());
   }
 
   @Override
   public void wakeUp() {
+  }
+
+  @Override
+  public void close() throws Exception {
+    currentSplitId = null;
+    if (currentReader != null) {
+      currentReader.close();
+    }
   }
 
   private void checkSplitOrStartNext() throws IOException {

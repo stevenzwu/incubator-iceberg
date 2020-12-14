@@ -58,22 +58,4 @@ public class IcebergSourceEvents {
       return finishedSplitIds;
     }
   }
-
-  /**
-   * A source event sent from the SplitEnumerator to the SourceReader to indicate that no more
-   * splits will be assigned to the source reader anymore. So once the SplitReader finishes
-   * reading the currently assigned splits, they can exit.
-   */
-  public static class NoMoreSplitsEvent implements SourceEvent {
-    private static final long serialVersionUID = 1L;
-  }
-
-  /**
-   * A simple {@link SourceEvent} indicating that there is no split available for the reader (any more).
-   * This event is typically sent from the {@link SplitEnumerator} to the {@link SourceReader}.
-   */
-  public static final class NoSplitAvailableEvent implements SourceEvent {
-    private static final long serialVersionUID = 1L;
-  }
-
 }

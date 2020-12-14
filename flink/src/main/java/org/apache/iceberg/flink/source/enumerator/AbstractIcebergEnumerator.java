@@ -22,11 +22,11 @@ package org.apache.iceberg.flink.source.enumerator;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
-import org.apache.flink.connector.base.source.event.NoMoreSplitsEvent;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
@@ -51,6 +51,11 @@ abstract class AbstractIcebergEnumerator<
       SplitAssigner<SplitAssignerStateT> assigner) {
     this.enumContext = enumContext;
     this.assigner = assigner;
+  }
+
+  @Override
+  public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
+    // no-op. custom event inside handleSourceEvent
   }
 
   @Override
@@ -108,7 +113,7 @@ abstract class AbstractIcebergEnumerator<
         enumContext.assignSplits(assignment);
         LOG.info("Assigned split to subtask {}: {}", subtask, split);
       } else {
-        enumContext.sendEventToSourceReader(subtask, new NoMoreSplitsEvent());
+        enumContext.signalNoMoreSplits(subtask);
         LOG.info("No more splits available for subtask {}", subtask);
       }
     });

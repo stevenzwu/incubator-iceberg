@@ -21,14 +21,14 @@ package org.apache.iceberg.flink.source.reader;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Queue;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsAddition;
-import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
@@ -45,8 +45,6 @@ import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
-import org.apache.iceberg.flink.source.util.BulkFormat;
-import org.apache.iceberg.flink.source.util.RecordAndPosition;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.junit.After;
@@ -98,8 +96,6 @@ public class TestIcebergSourceSplitReader {
     final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
     dataAppender.appendToTable(recordBatch3);
 
-    final ScanContext scanContext = new ScanContext()
-        .project(table.schema());
     final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
     Assert.assertEquals(1, splits.size());
     Assert.assertEquals(3, splits.get(0).task().files().size());
@@ -110,27 +106,25 @@ public class TestIcebergSourceSplitReader {
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
         TableInfo.fromTable(table), scanContext, rowType);
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
-    Queue<SplitsChange<IcebergSourceSplit>> changeQueue = new ArrayDeque<>();
-    changeQueue.add(new SplitsAddition(Arrays.asList(split)));
-    reader.handleSplitsChanges(changeQueue);
+    reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1
+        = reader.fetch();
     final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 0L, 0L);
     TestHelpers.assertRecords(rowBatch1, recordBatch1, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
+        = reader.fetch();
     final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
     TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
+        = reader.fetch();
     final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
     TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
+        = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
   }
 
@@ -146,8 +140,6 @@ public class TestIcebergSourceSplitReader {
     final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
     dataAppender.appendToTable(recordBatch3);
 
-    final ScanContext scanContext = new ScanContext()
-        .project(table.schema());
     final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
     Assert.assertEquals(1, splits.size());
     Assert.assertEquals(3, splits.get(0).task().files().size());
@@ -160,22 +152,20 @@ public class TestIcebergSourceSplitReader {
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
         TableInfo.fromTable(table), scanContext, rowType);
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
-    Queue<SplitsChange<IcebergSourceSplit>> changeQueue = new ArrayDeque<>();
-    changeQueue.add(new SplitsAddition(Arrays.asList(split)));
-    reader.handleSplitsChanges(changeQueue);
+    reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
+        = reader.fetch();
     final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
     TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
+        = reader.fetch();
     final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
     TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
+        = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
   }
 
@@ -191,8 +181,6 @@ public class TestIcebergSourceSplitReader {
     final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
     dataAppender.appendToTable(recordBatch3);
 
-    final ScanContext scanContext = new ScanContext()
-        .project(table.schema());
     final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
     Assert.assertEquals(1, splits.size());
     Assert.assertEquals(3, splits.get(0).task().files().size());
@@ -205,22 +193,20 @@ public class TestIcebergSourceSplitReader {
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
         TableInfo.fromTable(table), scanContext, rowType);
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
-    Queue<SplitsChange<IcebergSourceSplit>> changeQueue = new ArrayDeque<>();
-    changeQueue.add(new SplitsAddition(Arrays.asList(split)));
-    reader.handleSplitsChanges(changeQueue);
+    reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
+        = reader.fetch();
     final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
     TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
+        = reader.fetch();
     final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
     TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
+        = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
   }
 
@@ -236,8 +222,6 @@ public class TestIcebergSourceSplitReader {
     final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
     dataAppender.appendToTable(recordBatch3);
 
-    final ScanContext scanContext = new ScanContext()
-        .project(table.schema());
     final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
     Assert.assertEquals(1, splits.size());
     Assert.assertEquals(3, splits.get(0).task().files().size());
@@ -250,33 +234,31 @@ public class TestIcebergSourceSplitReader {
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
         TableInfo.fromTable(table), scanContext, rowType);
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
-    Queue<SplitsChange<IcebergSourceSplit>> changeQueue = new ArrayDeque<>();
-    changeQueue.add(new SplitsAddition(Arrays.asList(split)));
-    reader.handleSplitsChanges(changeQueue);
+    reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
+        = reader.fetch();
     final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 1L);
     TestHelpers.assertRecords(rowBatch2, recordBatch2.subList(1, 2), TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
+        = reader.fetch();
     final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
     TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
 
-    final org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
-        = reader.fetchNew();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
+        = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
   }
 
   private List<Row> readRows(
-      org.apache.iceberg.flink.source.util.RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch,
+      RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch,
       String expectedSplitId, long expectedOffset, long expectedStartingRecordOffset) {
     Assert.assertEquals(expectedSplitId, readBatch.nextSplit());
     final List<RowData> rowDataList = new ArrayList<>();
     RecordAndPosition<RowData> row;
     int num = 0;
-    while ( (row = readBatch.nextRecordFromSplit()) != null) {
+    while ((row = readBatch.nextRecordFromSplit()) != null) {
       Assert.assertEquals(expectedOffset, row.getOffset());
       num++;
       Assert.assertEquals(expectedStartingRecordOffset + num, row.getRecordSkipCount());
