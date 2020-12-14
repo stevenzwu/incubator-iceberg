@@ -23,11 +23,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
+import org.apache.flink.table.runtime.typeutils.InternalTypeInfo;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -73,7 +74,7 @@ public class FlinkSource {
     private long limit;
     private ScanContext context = new ScanContext();
 
-    private RowDataTypeInfo rowTypeInfo;
+    private TypeInformation<RowData> rowTypeInfo;
 
     public Builder tableLoader(TableLoader newLoader) {
       this.tableLoader = newLoader;
@@ -178,7 +179,7 @@ public class FlinkSource {
         encryption = table.encryption();
       }
 
-      rowTypeInfo = RowDataTypeInfo.of((RowType) (
+      rowTypeInfo = InternalTypeInfo.of((RowType) (
           projectedSchema == null ?
               FlinkSchemaUtil.toSchema(FlinkSchemaUtil.convert(icebergSchema)) :
               projectedSchema).toRowDataType().getLogicalType());

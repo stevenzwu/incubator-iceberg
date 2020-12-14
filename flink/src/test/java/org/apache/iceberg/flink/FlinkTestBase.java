@@ -76,7 +76,7 @@ public abstract class FlinkTestBase extends AbstractTestBase {
     TableResult tableResult = getTableEnv().executeSql(String.format(query, args));
     tableResult.getJobClient().ifPresent(c -> {
       try {
-        c.getJobExecutionResult(Thread.currentThread().getContextClassLoader()).get();
+        c.getJobExecutionResult().get();
       } catch (InterruptedException | ExecutionException e) {
         throw new RuntimeException(e);
       }
