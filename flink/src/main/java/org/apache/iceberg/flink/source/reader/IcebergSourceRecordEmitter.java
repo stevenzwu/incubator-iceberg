@@ -22,8 +22,8 @@ package org.apache.iceberg.flink.source.reader;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.source.SourceOutput;
 import org.apache.flink.connector.base.source.reader.RecordEmitter;
+import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
-import org.apache.iceberg.flink.source.util.RecordAndPosition;
 
 @Internal
 final class IcebergSourceRecordEmitter<T> implements RecordEmitter<RecordAndPosition<T>, T, IcebergSourceSplitState> {

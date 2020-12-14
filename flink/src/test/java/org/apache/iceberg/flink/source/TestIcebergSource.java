@@ -34,10 +34,13 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
+import org.apache.iceberg.flink.TableInfo;
+import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestHelpers;
-import org.apache.iceberg.flink.source.reader.RowDataIteratorFactory;
+import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -95,14 +98,19 @@ public class TestIcebergSource extends TestFlinkScan {
 
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
-
-    Configuration config = new Configuration();
+    final Configuration config = new Configuration();
     config.setInteger(IcebergSourceOptions.READER_FETCH_BATCH_SIZE, 128);
+    final Table table;
+    try (TableLoader tableLoader = tableLoader()) {
+      tableLoader.open();
+      table = tableLoader.loadTable();
+    }
+    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
 
     final DataStream<RowData> stream = env.fromSource(
         IcebergSource.<RowData>useSimpleAssigner()
             .tableLoader(tableLoader())
-            .bulkFormat(null)
+            .bulkFormat(new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType))
             .config(config)
             .scanContext(scanContext)
         .build(),
@@ -111,7 +119,6 @@ public class TestIcebergSource extends TestFlinkScan {
         TypeInformation.of(RowData.class));
 
     final List<RowData> result = ImmutableList.copyOf(DataStreamUtils.collect(stream));
-    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
     return TestHelpers.convertRowDataToRow(result, rowType);
   }
 

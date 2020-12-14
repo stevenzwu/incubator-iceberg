@@ -26,7 +26,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -67,7 +66,7 @@ public class TestHelpers {
     TypeSerializer[] fieldSerializers = rowType.getChildren().stream()
         .map((LogicalType type) -> InternalSerializers.create(type))
         .toArray(TypeSerializer[]::new);
-    return RowDataUtil.clone(from, rowType, fieldSerializers);
+    return RowDataUtil.clone(from, null, rowType, fieldSerializers);
   }
 
   public static List<RowData> readRowData(FlinkInputFormat inputFormat, RowType rowType) throws IOException {
@@ -107,7 +106,7 @@ public class TestHelpers {
     expectedRecords.forEach(r -> expected.add(converter.toExternal(RowDataConverter.convert(schema, r))));
     assertRows(results, expected);
   }
-  
+
   public static void assertRows(List<Row> results, List<Row> expected) {
     expected.sort(Comparator.comparing(Row::toString));
     results.sort(Comparator.comparing(Row::toString));

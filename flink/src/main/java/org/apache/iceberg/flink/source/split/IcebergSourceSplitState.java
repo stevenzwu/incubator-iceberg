@@ -37,9 +37,13 @@ public class IcebergSourceSplitState {
   }
 
   public static IcebergSourceSplitState fromSplit(IcebergSourceSplit split) {
-    return new IcebergSourceSplitState(split.task(),
-        split.checkpointedPosition().getOffset(),
-        split.checkpointedPosition().getRecordsAfterOffset());
+    if (split.checkpointedPosition() != null) {
+      return new IcebergSourceSplitState(split.task(),
+          split.checkpointedPosition().getOffset(),
+          split.checkpointedPosition().getRecordsAfterOffset());
+    } else {
+      return new IcebergSourceSplitState(split.task(), 0L, 0L);
+    }
   }
 
   public CombinedScanTask task() {

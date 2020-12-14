@@ -29,9 +29,7 @@ import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
 import org.apache.iceberg.Table;
@@ -50,11 +48,9 @@ import org.apache.iceberg.flink.source.enumerator.ContinuousIcebergEnumerator;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumStateSerializer;
 import org.apache.iceberg.flink.source.enumerator.StaticIcebergEnumerator;
-import org.apache.iceberg.flink.source.reader.DataIteratorFactory;
 import org.apache.iceberg.flink.source.reader.IcebergSourceReader;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
-import org.apache.iceberg.flink.source.util.BulkFormat;
 
 @Experimental
 public class IcebergSource<T,
@@ -63,7 +59,6 @@ public class IcebergSource<T,
     SplitAssignerStateSerializerT extends SplitAssignerStateSerializer<SplitAssignerStateT>>
     implements Source<T, IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> {
 
-  private final Configuration config;
   private final TableLoader tableLoader;
   private final ContinuousEnumConfig contEnumSettings;
   private final ScanContext scanContext;
@@ -74,7 +69,6 @@ public class IcebergSource<T,
   private final TableInfo tableInfo;
 
   IcebergSource(
-      Configuration config,
       TableLoader tableLoader,
       @Nullable ContinuousEnumConfig contEnumSettings,
       ScanContext scanContext,
@@ -82,7 +76,6 @@ public class IcebergSource<T,
       SplitAssignerFactory<SplitAssignerStateT, SplitAssignerT,
           SplitAssignerStateSerializerT> assignerFactory) {
 
-    this.config = config;
     this.tableLoader = tableLoader;
     this.contEnumSettings = contEnumSettings;
     this.scanContext = scanContext;
@@ -110,17 +103,8 @@ public class IcebergSource<T,
    */
   @Override
   public org.apache.flink.api.connector.source.SourceReader createReader(SourceReaderContext readerContext) {
-    FutureNotifier futureNotifier = new FutureNotifier();
-    // This is unbounded queue right now.
-    // Flink already has a fix that defaults capacity to 2
-    // and makes it configurable via constructor arg.
-    FutureCompletingBlockingQueue<RecordsWithSplitIds<T>> elementsQueue =
-        new FutureCompletingBlockingQueue<>(futureNotifier);
     // we should be able to getConfiguration from SourceReaderContext in the future
     return new IcebergSourceReader(
-        futureNotifier,
-        elementsQueue,
-        config,
         readerContext,
         bulkFormat);
   }
@@ -253,7 +237,6 @@ public class IcebergSource<T,
     public IcebergSource<T, SplitAssignerStateT, SplitAssignerT, SplitAssignerStateSerializerT> build() {
       checkRequired();
       return new IcebergSource(
-          config,
           tableLoader,
           contEnumSettings,
           scanContext,

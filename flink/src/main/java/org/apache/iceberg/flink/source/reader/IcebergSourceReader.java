@@ -19,36 +19,30 @@
 
 package org.apache.iceberg.flink.source.reader;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureCompletingBlockingQueue;
-import org.apache.flink.connector.base.source.reader.synchronization.FutureNotifier;
+import org.apache.flink.connector.file.src.reader.BulkFormat;
+import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
-import org.apache.iceberg.flink.source.util.BulkFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IcebergSourceReader<T> extends
-    SingleThreadMultiplexSourceReaderBase<T, T, IcebergSourceSplit, IcebergSourceSplitState> {
+    SingleThreadMultiplexSourceReaderBase<RecordAndPosition<T>, T, IcebergSourceSplit, IcebergSourceSplitState> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceReader.class);
 
   public IcebergSourceReader(
-      FutureNotifier futureNotifier,
-      FutureCompletingBlockingQueue<RecordsWithSplitIds<T>> elementsQueue,
-      Configuration config,
       SourceReaderContext context,
       BulkFormat<T, IcebergSourceSplit> readerFormat) {
     super(
-        futureNotifier,
-        elementsQueue,
-        () -> new IcebergSourceSplitReader<>(config, readerFormat),
+        () -> new IcebergSourceSplitReader<>(context.getConfiguration(), readerFormat),
         new IcebergSourceRecordEmitter(),
-        config,
+        context.getConfiguration(),
         context);
   }
 
@@ -72,11 +66,9 @@ public class IcebergSourceReader<T> extends
   }
 
   @Override
-  protected void onSplitFinished(Collection<String> finishedSplitIds) {
-    // TODO: latest Flink master branch code ensures that this is only called
-    // when finishedSplitIds isn't empty.
+  protected void onSplitFinished(Map<String, IcebergSourceSplitState> finishedSplitIds) {
     if (!finishedSplitIds.isEmpty()) {
-      requestSplit(finishedSplitIds);
+      requestSplit(new ArrayList<>(finishedSplitIds.keySet()));
     }
   }
 

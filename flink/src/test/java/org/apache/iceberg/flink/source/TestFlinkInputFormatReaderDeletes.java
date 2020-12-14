@@ -20,6 +20,7 @@
 package org.apache.iceberg.flink.source;
 
 import java.io.IOException;
+import java.util.Map;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.iceberg.CatalogProperties;
@@ -32,6 +33,7 @@ import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.RowDataWrapper;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestHelpers;
+import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.util.StructLikeSet;
 
 public class TestFlinkInputFormatReaderDeletes extends TestFlinkReaderDeletesBase {

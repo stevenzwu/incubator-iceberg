@@ -19,25 +19,28 @@
 
 package org.apache.iceberg.flink.source.split;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.flink.api.connector.source.SourceSplit;
+import org.apache.flink.connector.file.src.FileSourceSplit;
+import org.apache.flink.connector.file.src.util.CheckpointedPosition;
+import org.apache.flink.core.fs.Path;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.flink.source.util.CheckpointedPosition;
 import org.apache.iceberg.relocated.com.google.common.base.MoreObjects;
 import org.apache.iceberg.relocated.com.google.common.base.Objects;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 
-public class IcebergSourceSplit implements SourceSplit, Serializable {
+public class IcebergSourceSplit extends FileSourceSplit {
 
   private final CombinedScanTask task;
   @Nullable
   private final CheckpointedPosition checkpointedPosition;
 
   IcebergSourceSplit(CombinedScanTask task, CheckpointedPosition checkpointedPosition) {
+    // supply dummy values to extend from FileSourceSplit
+    // we can move away from
+    super("", new Path("file://dummy"), 0L, 0L);
     this.task = task;
     this.checkpointedPosition = checkpointedPosition;
   }
