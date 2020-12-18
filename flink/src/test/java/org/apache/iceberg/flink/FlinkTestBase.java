@@ -87,6 +87,11 @@ public abstract class FlinkTestBase extends AbstractTestBase {
       Row row = iter.next();
       results.add(IntStream.range(0, row.getArity()).mapToObj(row::getField).toArray(Object[]::new));
     }
+    try {
+      iter.close();
+    } catch (Exception e) {
+      throw new RuntimeException("failed to close table result iterator", e);
+    }
     return results;
   }
 }
