@@ -64,12 +64,14 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.DateTimeUtil;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import static org.apache.iceberg.types.Types.NestedField.required;
 
+@Ignore
 @RunWith(Parameterized.class)
 public abstract class TestFlinkScan extends AbstractTestBase {
 
