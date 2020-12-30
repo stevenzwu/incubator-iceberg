@@ -38,13 +38,11 @@ import org.apache.iceberg.types.Types;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * Test for {@link CatalogLoader} and {@link TableLoader}.
  */
-@Ignore
 public class TestCatalogTableLoader extends FlinkTestBase {
 
   private static File warehouse = null;

@@ -32,10 +32,8 @@ import org.apache.iceberg.types.Types;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 
-@Ignore
 public class TestFlinkCatalogDatabase extends FlinkCatalogTestBase {
 
   public TestFlinkCatalogDatabase(String catalogName, String[] baseNamepace) {
