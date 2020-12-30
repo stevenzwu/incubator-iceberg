@@ -45,11 +45,9 @@ import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.util.StructLikeSet;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-@Ignore
 @RunWith(Parameterized.class)
 public class TestFlinkInputFormatReaderDeletes extends DeleteReadTests {
   private static HiveConf hiveConf = null;

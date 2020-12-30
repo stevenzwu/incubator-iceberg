@@ -37,13 +37,11 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * Test Flink SELECT SQLs.
  */
-@Ignore
 public class TestFlinkScanSql extends TestFlinkScan {
 
   private volatile TableEnvironment tEnv;

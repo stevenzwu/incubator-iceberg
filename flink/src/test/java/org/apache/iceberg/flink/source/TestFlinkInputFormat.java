@@ -37,7 +37,6 @@ import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.types.Types;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.apache.iceberg.types.Types.NestedField.required;
@@ -45,7 +44,6 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 /**
  * Test {@link FlinkInputFormat}.
  */
-@Ignore
 public class TestFlinkInputFormat extends TestFlinkScan {
 
   public TestFlinkInputFormat(String fileFormat) {

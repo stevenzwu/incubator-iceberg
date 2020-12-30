@@ -32,9 +32,7 @@ import org.apache.iceberg.flink.RowDataConverter;
 import org.apache.iceberg.flink.sink.FlinkAppenderFactory;
 import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
-import org.junit.Ignore;
 
-@Ignore
 public class TestFlinkMergingMetrics extends TestMergingMetrics<RowData> {
 
   public TestFlinkMergingMetrics(FileFormat fileFormat) {
