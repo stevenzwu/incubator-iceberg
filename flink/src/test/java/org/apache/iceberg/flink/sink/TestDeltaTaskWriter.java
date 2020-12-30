@@ -46,6 +46,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.apache.iceberg.util.StructLikeSet;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -56,6 +57,7 @@ import static org.apache.iceberg.flink.SimpleDataUtil.createRecord;
 import static org.apache.iceberg.flink.SimpleDataUtil.createUpdateAfter;
 import static org.apache.iceberg.flink.SimpleDataUtil.createUpdateBefore;
 
+@Ignore
 @RunWith(Parameterized.class)
 public class TestDeltaTaskWriter extends TableTestBase {
   private static final int FORMAT_V2 = 2;
