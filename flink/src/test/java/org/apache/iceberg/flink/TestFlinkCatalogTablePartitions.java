@@ -31,11 +31,13 @@ import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runners.Parameterized;
 
 import static org.apache.iceberg.flink.FlinkCatalogFactory.CACHE_ENABLED;
 
+@Ignore
 public class TestFlinkCatalogTablePartitions extends FlinkCatalogTestBase {
 
   private String tableName = "test_table";
