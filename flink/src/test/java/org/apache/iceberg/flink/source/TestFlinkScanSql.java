@@ -57,7 +57,6 @@ public class TestFlinkScanSql extends TestFlinkScan {
         "create catalog iceberg_catalog with ('type'='iceberg', 'catalog-type'='hadoop', 'warehouse'='%s')",
         warehouse));
     getTableEnv().executeSql("use catalog iceberg_catalog");
-    getTableEnv().getConfig().getConfiguration().set(TableConfigOptions.TABLE_DYNAMIC_TABLE_OPTIONS_ENABLED, true);
   }
 
   private TableEnvironment getTableEnv() {
