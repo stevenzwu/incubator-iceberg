@@ -47,7 +47,7 @@ public abstract class FlinkTestBase extends TestBaseUtils {
   private static final org.apache.flink.configuration.Configuration config =
       new org.apache.flink.configuration.Configuration()
           // disable classloader check as Avro may cache class/object in the serializers.
-          .set(CoreOptions.CHECK_LEAKED_CLASSLOADER, false);
+          .set(CoreOptions.CHECK_LEAKED_CLASSLOADER, true);
 
   @ClassRule
   public static MiniClusterWithClientResource miniClusterResource = new MiniClusterWithClientResource(

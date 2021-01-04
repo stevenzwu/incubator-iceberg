@@ -20,26 +20,117 @@
 package org.apache.iceberg.flink;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
+import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.table.api.EnvironmentSettings;
+import org.apache.flink.table.api.TableEnvironment;
+import org.apache.flink.table.api.TableResult;
+import org.apache.flink.test.util.MiniClusterWithClientResource;
+import org.apache.flink.test.util.TestBaseUtils;
+import org.apache.flink.types.Row;
 import org.apache.flink.util.ArrayUtils;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.hive.HiveCatalog;
+import org.apache.iceberg.hive.TestHiveMetastore;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public abstract class FlinkCatalogTestBase extends FlinkTestBase {
+public abstract class FlinkCatalogTestBase extends TestBaseUtils {
+
+  private static final int DEFAULT_PARALLELISM = 4;
+
+  private static final org.apache.flink.configuration.Configuration flinkConfig =
+      new org.apache.flink.configuration.Configuration()
+          // disable classloader check as Avro may cache class/object in the serializers.
+          .set(CoreOptions.CHECK_LEAKED_CLASSLOADER, false);
+
+  @ClassRule
+  public static MiniClusterWithClientResource miniClusterResource = new MiniClusterWithClientResource(
+      new MiniClusterResourceConfiguration.Builder()
+          .setNumberTaskManagers(1)
+          .setNumberSlotsPerTaskManager(DEFAULT_PARALLELISM)
+          .setConfiguration(flinkConfig)
+          .build());
+
+  @ClassRule
+  public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
+
+  private static TestHiveMetastore metastore = null;
+  protected static HiveConf hiveConf = null;
+  protected static HiveCatalog catalog = null;
+
+  private volatile TableEnvironment tEnv = null;
+
+  @BeforeClass
+  public static void startMetastore() {
+    metastore = new TestHiveMetastore();
+    metastore.start();
+    hiveConf = metastore.hiveConf();
+    catalog = new HiveCatalog(metastore.hiveConf());
+  }
+
+  @AfterClass
+  public static void stopMetastore() {
+    metastore.stop();
+    catalog.close();
+    FlinkTestBase.catalog = null;
+  }
+
+  protected TableEnvironment getTableEnv() {
+    if (tEnv == null) {
+      synchronized (this) {
+        if (tEnv == null) {
+          this.tEnv = TableEnvironment.create(EnvironmentSettings
+              .newInstance()
+              .useBlinkPlanner()
+              .inBatchMode().build());
+        }
+      }
+    }
+    return tEnv;
+  }
+
+  protected List<Object[]> sql(String query, Object... args) {
+    TableResult tableResult = getTableEnv().executeSql(String.format(query, args));
+    tableResult.getJobClient().ifPresent(c -> {
+      try {
+        c.getJobExecutionResult().get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    });
+    CloseableIterator<Row> iter = tableResult.collect();
+    List<Object[]> results = Lists.newArrayList();
+    while (iter.hasNext()) {
+      Row row = iter.next();
+      results.add(IntStream.range(0, row.getArity()).mapToObj(row::getField).toArray(Object[]::new));
+    }
+    try {
+      iter.close();
+    } catch (Exception e) {
+      throw new RuntimeException("failed to close table result iterator", e);
+    }
+    return results;
+  }
 
   protected static final String DATABASE = "db";
   private static TemporaryFolder hiveWarehouse = new TemporaryFolder();
