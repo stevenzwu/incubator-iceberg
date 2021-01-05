@@ -20,7 +20,6 @@
 package org.apache.iceberg.flink;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
@@ -97,24 +96,15 @@ public abstract class FlinkTestBase extends TestBaseUtils {
 
   protected List<Object[]> sql(String query, Object... args) {
     TableResult tableResult = getTableEnv().executeSql(String.format(query, args));
-    tableResult.getJobClient().ifPresent(c -> {
-      try {
-        c.getJobExecutionResult().get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new RuntimeException(e);
+    try (CloseableIterator<Row> iter = tableResult.collect()) {
+      List<Object[]> results = Lists.newArrayList();
+      while (iter.hasNext()) {
+        Row row = iter.next();
+        results.add(IntStream.range(0, row.getArity()).mapToObj(row::getField).toArray(Object[]::new));
       }
-    });
-    CloseableIterator<Row> iter = tableResult.collect();
-    List<Object[]> results = Lists.newArrayList();
-    while (iter.hasNext()) {
-      Row row = iter.next();
-      results.add(IntStream.range(0, row.getArity()).mapToObj(row::getField).toArray(Object[]::new));
-    }
-    try {
-      iter.close();
+      return results;
     } catch (Exception e) {
-      throw new RuntimeException("failed to close table result iterator", e);
+      throw new RuntimeException("Failed to collect table result", e);
     }
-    return results;
   }
 }
