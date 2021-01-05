@@ -19,13 +19,9 @@
 
 package org.apache.iceberg.flink.source.enumerator;
 
-import javax.annotation.Nullable;
+import java.util.Optional;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.flink.TableLoader;
-import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,40 +29,26 @@ import org.slf4j.LoggerFactory;
 /**
  * One-time split enumeration at the beginning
  */
-public class StaticIcebergEnumerator<SplitAssignerStateT extends SplitAssignerState>
-    extends AbstractIcebergEnumerator<SplitAssignerStateT> {
+public class StaticIcebergEnumerator extends AbstractIcebergEnumerator {
 
   private static final Logger LOG = LoggerFactory.getLogger(StaticIcebergEnumerator.class);
 
-  private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
-  private final TableLoader tableLoader;
-  private final ScanContext scanContext;
-  private final SplitAssigner<SplitAssignerStateT> assigner;
-  private final Table table;
+  private final SplitAssigner assigner;
 
   public StaticIcebergEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      TableLoader tableLoader,
-      ScanContext scanContext,
-      SplitAssigner<SplitAssignerStateT> assigner,
-      @Nullable IcebergEnumState<SplitAssignerStateT> enumState) {
-
+      SplitAssigner assigner) {
     super(enumContext, assigner);
-
-    this.enumContext = enumContext;
-    this.tableLoader = tableLoader;
-    this.scanContext = scanContext;
     this.assigner = assigner;
-    this.table = loadTable(tableLoader);
   }
 
   @Override
-  public void start() {
-    // splits already discovered
+  protected boolean shouldWaitForMoreSplits() {
+    return false;
   }
 
   @Override
-  public IcebergEnumState<SplitAssignerStateT> snapshotState() throws Exception {
-    return new IcebergEnumState<>(assigner.splitAssignerState());
+  public IcebergEnumState snapshotState() throws Exception {
+    return new IcebergEnumState(Optional.empty(), assigner.snapshotState());
   }
 }

@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source;
 
 import java.util.Collection;
 import java.util.Collections;
+import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SplitEnumerator;
@@ -45,17 +46,28 @@ public class IcebergSourceEvents {
     private static final long serialVersionUID = 1L;
 
     private final Collection<String> finishedSplitIds;
+    @Nullable
+    private final String requesterHostname;
 
     public SplitRequestEvent() {
-      this.finishedSplitIds = Collections.emptyList();
+      this(Collections.emptyList());
     }
 
     public SplitRequestEvent(Collection<String> finishedSplitIds) {
+      this(finishedSplitIds, null);
+    }
+
+    public SplitRequestEvent(Collection<String> finishedSplitIds, String requesterHostname) {
       this.finishedSplitIds = finishedSplitIds;
+      this.requesterHostname = requesterHostname;
     }
 
     public Collection<String> finishedSplitIds() {
       return finishedSplitIds;
+    }
+
+    public String requesterHostname() {
+      return requesterHostname;
     }
   }
 }

@@ -39,6 +39,7 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestFixtures;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
@@ -95,8 +96,9 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
     final DataStream<Row> stream = env.fromSource(
-        IcebergSource.<RowData>useSimpleAssigner()
+        IcebergSource.builder()
             .tableLoader(tableLoader)
+            .assignerFactory(new SimpleSplitAssignerFactory())
             .bulkFormat(null)
             .scanContext(new ScanContext()
                 .project(table.schema()))

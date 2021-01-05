@@ -20,54 +20,62 @@
 package org.apache.iceberg.flink.source.assigner;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 
-public interface SplitAssigner<SplitAssignerStateT extends SplitAssignerState> {
-
-  /**
-   * Adds a set of splits to this assigner. This could happen when
-   * <ul>
-   *   <li>some split processing failed and the splits need to be re-added.
-   *   <li>new splits got discovered.
-   * </ul>
-   */
-  void addSplits(Collection<IcebergSourceSplit> splits);
+public interface SplitAssigner extends AutoCloseable {
 
   /**
-   * Signal assigner that no more splits
-   * will be discovered.
+   * Some assigners may need to start background threads or perform other activity such as
+   * registering as listeners to updates from other event sources e.g., watermark tracker.
    */
-  void onNoMoreSplits();
+  default void start() {
+  }
 
   /**
-   * Handle the reader registration.
-   * E.g., clear out orphaned pending futures for the reader
-   * before the reader restart.
-   *
-   * @param subtaskId the subtaskId of the new reader.
+   * Some assigners may need to perform certain actions
+   * when their corresponding enumerators are closed
    */
-  void onAddedReader(int subtaskId);
+  @Override
+  default void close() {
+  }
 
   /**
-   * Notify assigner when splits are finished
-   * in case assigner needs to do some bookkeeping work.
-   * E.g. Event time aligned assinger may need to advance the watermark
-   * based on the completed splits.
+   * Request a new split from the assigner
+   * as enumerator trying to assign splits to awaiting readers
    */
-  void onSplitsCompletion(int subtask, Collection<String> completedSplitIds);
+  GetSplitResult getNext(@Nullable String hostname);
 
   /**
-   * Request the next split .
-   *
-   * The returned future is guaranteed to be completed with
-   * either a valid split or null (indicating no more splits).
+   * Add new splits discovered by enumerator
    */
-  CompletableFuture<IcebergSourceSplit> getNext(int subtask);
+  void onDiscoveredSplits(Collection<IcebergSourceSplit> splits);
 
   /**
-   * Gets the split assigner state for checkpointing
+   *   Forward addSplitsBack event (for failed reader) to assigner
    */
-  SplitAssignerStateT splitAssignerState();
+  void onUnassignedSplits(Collection<IcebergSourceSplit> splits, int subtaskId);
 
+  /**
+   * Some assigner (like event time alignment) may rack in-progress splits
+   * to advance watermark upon completed splits
+   */
+  default void onCompletedSplits(Collection<String> completedSplitIds, int subtaskId) {
+  }
+
+  /**
+   * Get assigner state for checkpointing.
+   * This is a super-set API that works for all currently imagined assigners.
+   */
+  Map<IcebergSourceSplit, IcebergSourceSplitState> snapshotState();
+
+  /**
+   * Enumerator can get a notification via CompletableFuture
+   * when the assigner has more splits available later.
+   * Enumerator should schedule assignment in the thenAccept action of the future.
+   */
+  CompletableFuture<Void> isAvailable();
 }
