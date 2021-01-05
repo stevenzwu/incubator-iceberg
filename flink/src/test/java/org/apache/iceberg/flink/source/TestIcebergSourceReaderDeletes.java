@@ -42,6 +42,7 @@ import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.RowDataWrapper;
 import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
@@ -90,8 +91,9 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
       final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
       env.setParallelism(1);
       final DataStream<RowData> stream = env.fromSource(
-          IcebergSource.<RowData>useSimpleAssigner()
+          IcebergSource.builder()
               .tableLoader(tableLoader)
+              .assignerFactory(new SimpleSplitAssignerFactory())
               .bulkFormat(new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType))
               .scanContext(scanContext)
               .build(),

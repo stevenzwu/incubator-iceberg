@@ -19,8 +19,11 @@
 
 package org.apache.iceberg.flink.source.assigner;
 
-public class SimpleSplitAssignerFactory implements SplitAssignerFactory
-    <SimpleSplitAssignerState, SimpleSplitAssigner, SimpleSplitAssignerStateSerializer> {
+import java.util.Map;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+
+public class SimpleSplitAssignerFactory implements SplitAssignerFactory {
 
   @Override
   public SimpleSplitAssigner createAssigner() {
@@ -28,12 +31,7 @@ public class SimpleSplitAssignerFactory implements SplitAssignerFactory
   }
 
   @Override
-  public SimpleSplitAssigner createAssigner(SimpleSplitAssignerState state) {
+  public SimpleSplitAssigner createAssigner(Map<IcebergSourceSplit, IcebergSourceSplitState> state) {
     return new SimpleSplitAssigner(state);
-  }
-
-  @Override
-  public SimpleSplitAssignerStateSerializer createSerializer() {
-    return SimpleSplitAssignerStateSerializer.INSTANCE;
   }
 }

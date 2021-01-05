@@ -37,9 +37,16 @@ public class IcebergSourceSplit extends FileSourceSplit {
   @Nullable
   private final CheckpointedPosition checkpointedPosition;
 
+  /**
+   * The splits are frequently serialized into checkpoints.
+   * Caching the byte representation makes repeated serialization cheap.
+   */
+  @Nullable private transient byte[] serializedFormCache;
+
   IcebergSourceSplit(CombinedScanTask task, CheckpointedPosition checkpointedPosition) {
-    // supply dummy values to extend from FileSourceSplit
-    // we can move away from
+    // Supply dummy values so that IcebergSourceSplit extend from FileSourceSplit,
+    // as required by using BulkFormat interface in IcebergSource.
+    // We are hoping to clean this up after FLINK-20174 is resolved.
     super("", new Path("file://dummy"), 0L, 0L);
     this.task = task;
     this.checkpointedPosition = checkpointedPosition;
@@ -49,7 +56,7 @@ public class IcebergSourceSplit extends FileSourceSplit {
     return new IcebergSourceSplit(combinedScanTask, null);
   }
 
-  public static IcebergSourceSplit fromSplitState(IcebergSourceSplitState state) {
+  public static IcebergSourceSplit fromSplitState(MutableIcebergSourceSplit state) {
     return new IcebergSourceSplit(state.task(), new CheckpointedPosition(
         state.offset(), state.recordsToSkipAfterOffset()));
   }
@@ -60,6 +67,14 @@ public class IcebergSourceSplit extends FileSourceSplit {
 
   public CheckpointedPosition checkpointedPosition() {
     return checkpointedPosition;
+  }
+
+  public byte[] serializedFormCache() {
+    return serializedFormCache;
+  }
+
+  public void serializedFormCache(byte[] cachedBytes) {
+    this.serializedFormCache = cachedBytes;
   }
 
   @Override

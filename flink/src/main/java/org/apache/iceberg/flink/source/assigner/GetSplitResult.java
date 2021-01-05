@@ -19,31 +19,48 @@
 
 package org.apache.iceberg.flink.source.assigner;
 
-import java.util.Collection;
-import java.util.Collections;
+import javax.annotation.Nullable;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
-public class SimpleSplitAssignerState implements SplitAssignerState {
+public class GetSplitResult {
 
-  private final Collection<IcebergSourceSplit> pendingSplits;
-  private final boolean noMoreSplits;
+  public enum Status {
 
-  public SimpleSplitAssignerState() {
-    this(Collections.emptyList(), false);
+    AVAILABLE,
+
+    /**
+     * There are pending splits. But they can't be assigned
+     * due to constraints (like event time alignment)
+     */
+    CONSTRAINED,
+
+    /**
+     * Assigner doesn't have pending splits.
+     */
+    UNAVAILABLE
   }
 
-  public SimpleSplitAssignerState(
-      Collection<IcebergSourceSplit> pendingSplits,
-      boolean noMoreSplits) {
-    this.pendingSplits = pendingSplits;
-    this.noMoreSplits = noMoreSplits;
+  private final Status status;
+  @Nullable
+  private final IcebergSourceSplit split;
+
+  public GetSplitResult(Status status) {
+    this(status, null);
   }
 
-  public Collection<IcebergSourceSplit> getPendingSplits() {
-    return pendingSplits;
+  public GetSplitResult(Status status, @Nullable IcebergSourceSplit split) {
+    if (null == split && status == Status.AVAILABLE) {
+      throw new IllegalArgumentException("Available status must have a non-null split");
+    }
+    this.status = status;
+    this.split = split;
   }
 
-  public boolean noMoreSplits() {
-    return noMoreSplits;
+  public Status status() {
+    return status;
+  }
+
+  public IcebergSourceSplit split() {
+    return split;
   }
 }

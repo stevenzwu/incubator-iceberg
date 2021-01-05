@@ -20,15 +20,13 @@
 package org.apache.iceberg.flink.source.assigner;
 
 import java.io.Serializable;
+import java.util.Map;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 
-public interface SplitAssignerFactory<SplitAssignerStateT extends SplitAssignerState,
-    SplitAssignerT extends SplitAssigner<SplitAssignerStateT>,
-    SplitAssignerStateSerializerT extends SplitAssignerStateSerializer<SplitAssignerStateT>>
-    extends Serializable {
+public interface SplitAssignerFactory extends Serializable {
 
-  SplitAssignerT createAssigner();
+  SplitAssigner createAssigner();
 
-  SplitAssignerT createAssigner(SplitAssignerStateT state);
-
-  SplitAssignerStateSerializerT createSerializer();
+  SplitAssigner createAssigner(Map<IcebergSourceSplit, IcebergSourceSplitState> state);
 }

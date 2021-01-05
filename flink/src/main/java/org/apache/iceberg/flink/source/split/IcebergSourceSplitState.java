@@ -19,47 +19,49 @@
 
 package org.apache.iceberg.flink.source.split;
 
-import org.apache.iceberg.CombinedScanTask;
+import java.io.Serializable;
+import javax.annotation.Nullable;
 
-/**
- * This essentially the mutable version of {@link IcebergSourceSplit}
- */
-public class IcebergSourceSplitState {
+public class IcebergSourceSplitState implements Serializable {
 
-  private final CombinedScanTask task;
-  private long offset;
-  private long recordsToSkipAfterOffset;
-
-  public IcebergSourceSplitState(CombinedScanTask task, long offset, long recordsToSkipAfterOffset) {
-    this.task = task;
-    this.offset = offset;
-    this.recordsToSkipAfterOffset = recordsToSkipAfterOffset;
+  public enum Status {
+    UNASSIGNED,
+    ASSIGNED,
+    COMPLETED
   }
 
-  public static IcebergSourceSplitState fromSplit(IcebergSourceSplit split) {
-    if (split.checkpointedPosition() != null) {
-      return new IcebergSourceSplitState(split.task(),
-          split.checkpointedPosition().getOffset(),
-          split.checkpointedPosition().getRecordsAfterOffset());
-    } else {
-      return new IcebergSourceSplitState(split.task(), 0L, 0L);
-    }
+  private final Status status;
+  @Nullable
+  private final Integer assignedSubtaskId;
+
+  /**
+   * The splits are frequently serialized into checkpoints.
+   * Caching the byte representation makes repeated serialization cheap.
+   */
+  @Nullable private transient byte[] serializedFormCache;
+
+  public IcebergSourceSplitState(Status status) {
+    this(status, null);
   }
 
-  public CombinedScanTask task() {
-    return task;
+  public IcebergSourceSplitState(Status status, @Nullable Integer assignedSubtaskId) {
+    this.status = status;
+    this.assignedSubtaskId = assignedSubtaskId;
   }
 
-  public long offset() {
-    return offset;
+  public Status status() {
+    return status;
   }
 
-  public long recordsToSkipAfterOffset() {
-    return recordsToSkipAfterOffset;
+  public Integer assignedSubtaskId() {
+    return assignedSubtaskId;
   }
 
-  public void updatePosition(long newOffset, long newRecordsToSkipAfterOffset) {
-    this.offset = newOffset;
-    this.recordsToSkipAfterOffset = newRecordsToSkipAfterOffset;
+  public byte[] serializedFormCache() {
+    return serializedFormCache;
+  }
+
+  public void serializedFormCache(byte[] cachedBytes) {
+    this.serializedFormCache = cachedBytes;
   }
 }

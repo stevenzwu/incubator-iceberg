@@ -40,6 +40,7 @@ import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestHelpers;
+import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.junit.runner.RunWith;
@@ -108,8 +109,9 @@ public class TestIcebergSource extends TestFlinkScan {
     final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
 
     final DataStream<RowData> stream = env.fromSource(
-        IcebergSource.<RowData>useSimpleAssigner()
+        IcebergSource.builder()
             .tableLoader(tableLoader())
+            .assignerFactory(new SimpleSplitAssignerFactory())
             .bulkFormat(new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType))
             .config(config)
             .scanContext(scanContext)

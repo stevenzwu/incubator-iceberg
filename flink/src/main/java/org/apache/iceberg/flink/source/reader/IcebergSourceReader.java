@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source.reader;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
@@ -28,12 +29,12 @@ import org.apache.flink.connector.file.src.reader.BulkFormat;
 import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.MutableIcebergSourceSplit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class IcebergSourceReader<T> extends
-    SingleThreadMultiplexSourceReaderBase<RecordAndPosition<T>, T, IcebergSourceSplit, IcebergSourceSplitState> {
+    SingleThreadMultiplexSourceReaderBase<RecordAndPosition<T>, T, IcebergSourceSplit, MutableIcebergSourceSplit> {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceReader.class);
 
   public IcebergSourceReader(
@@ -58,29 +59,25 @@ public class IcebergSourceReader<T> extends
    */
   @Override
   public void start() {
-    // TODO: in 1.11.2, it seems that SplitRequestEvent
-    // reached enumerator before reader registration.
-    // This is probably fixed in master branch.
-    // That is why it worked for file source.
-//    requestSplit(Collections.emptyList());
+    requestSplit(Collections.emptyList());
   }
 
   @Override
-  protected void onSplitFinished(Map<String, IcebergSourceSplitState> finishedSplitIds) {
+  protected void onSplitFinished(Map<String, MutableIcebergSourceSplit> finishedSplitIds) {
     if (!finishedSplitIds.isEmpty()) {
       requestSplit(new ArrayList<>(finishedSplitIds.keySet()));
     }
   }
 
   @Override
-  protected IcebergSourceSplitState initializedState(IcebergSourceSplit split) {
-    return IcebergSourceSplitState.fromSplit(split);
+  protected MutableIcebergSourceSplit initializedState(IcebergSourceSplit split) {
+    return MutableIcebergSourceSplit.fromSplit(split);
   }
 
   @Override
   protected IcebergSourceSplit toSplitType(
       String splitId,
-      IcebergSourceSplitState splitState) {
+      MutableIcebergSourceSplit splitState) {
     return IcebergSourceSplit.fromSplitState(splitState);
   }
 

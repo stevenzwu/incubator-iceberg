@@ -26,20 +26,18 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.parquet.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ContinuousIcebergEnumerator<SplitAssignerStateT extends SplitAssignerState>
-    extends AbstractIcebergEnumerator<SplitAssignerStateT> {
+public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContinuousIcebergEnumerator.class);
 
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
   private final ScanContext scanContext;
-  private final SplitAssigner<SplitAssignerStateT> assigner;
+  private final SplitAssigner assigner;
   private final ContinuousEnumConfig contEnumConfig;
   private final Table table;
   private final ContinuousSplitPlanner splitPlanner;
@@ -54,8 +52,8 @@ public class ContinuousIcebergEnumerator<SplitAssignerStateT extends SplitAssign
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
       TableLoader tableLoader,
       ScanContext scanContext,
-      SplitAssigner<SplitAssignerStateT> assigner,
-      @Nullable IcebergEnumState<SplitAssignerStateT> enumState,
+      SplitAssigner assigner,
+      @Nullable IcebergEnumState enumState,
       ContinuousEnumConfig contEnumConfig) {
     super(enumContext, assigner);
 
@@ -95,10 +93,13 @@ public class ContinuousIcebergEnumerator<SplitAssignerStateT extends SplitAssign
   }
 
   @Override
-  public IcebergEnumState<SplitAssignerStateT> snapshotState() throws Exception {
-    return new IcebergEnumState<>(
-        lastEnumeratedSnapshotId,
-        assigner.splitAssignerState());
+  protected boolean shouldWaitForMoreSplits() {
+    return true;
+  }
+
+  @Override
+  public IcebergEnumState snapshotState() throws Exception {
+    return new IcebergEnumState(lastEnumeratedSnapshotId, assigner.snapshotState());
   }
 
   private SplitPlanningResult discoverSplits() {
@@ -108,7 +109,7 @@ public class ContinuousIcebergEnumerator<SplitAssignerStateT extends SplitAssign
 
   private void processDiscoveredSplits(SplitPlanningResult result, Throwable error) {
     if (error == null) {
-      assigner.addSplits(result.splits());
+      assigner.onDiscoveredSplits(result.splits());
       lastEnumeratedSnapshotId = Optional.of(result.lastEnumeratedSnapshotId());
     } else {
       LOG.error("Failed to enumerate splits", error);

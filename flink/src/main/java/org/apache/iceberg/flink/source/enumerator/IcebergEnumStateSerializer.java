@@ -20,28 +20,28 @@
 package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerStateSerializer;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStateSerializer;
 
-public class IcebergEnumStateSerializer<
-    SplitAssignerStateT extends SplitAssignerState,
-    SplitAssignerStateSerializerT extends SplitAssignerStateSerializer<SplitAssignerStateT>>
-    implements SimpleVersionedSerializer<IcebergEnumState<SplitAssignerStateT>> {
+public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<IcebergEnumState> {
+
+  public static final IcebergEnumStateSerializer INSTANCE = new IcebergEnumStateSerializer();
 
   private static final int VERSION = 1;
 
   private static final ThreadLocal<DataOutputSerializer> SERIALIZER_CACHE =
       ThreadLocal.withInitial(() -> new DataOutputSerializer(1024));
 
-  private final SplitAssignerStateSerializerT assignerSerializer;
-
-  public IcebergEnumStateSerializer(SplitAssignerStateSerializerT assignerSerializer) {
-    this.assignerSerializer = assignerSerializer;
-  }
+  private final IcebergSourceSplitSerializer splitSerializer = IcebergSourceSplitSerializer.INSTANCE;
+  private final IcebergSourceSplitStateSerializer splitStateSerializer = IcebergSourceSplitStateSerializer.INSTANCE;
 
   @Override
   public int getVersion() {
@@ -49,40 +49,64 @@ public class IcebergEnumStateSerializer<
   }
 
   @Override
-  public byte[] serialize(IcebergEnumState<SplitAssignerStateT> enumState) throws IOException {
+  public byte[] serialize(IcebergEnumState enumState) throws IOException {
+    return serializeV1(enumState);
+  }
+
+  @Override
+  public IcebergEnumState deserialize(int version, byte[] serialized) throws IOException {
+    switch (version) {
+      case 1:
+        return deserializeV1(serialized);
+      default:
+        throw new IOException("Unknown version: " + version);
+    }
+  }
+
+  private byte[] serializeV1(IcebergEnumState enumState) throws IOException {
     final DataOutputSerializer out = SERIALIZER_CACHE.get();
-    // serialize enumerator state
+
     out.writeBoolean(enumState.lastEnumeratedSnapshotId().isPresent());
     if (enumState.lastEnumeratedSnapshotId().isPresent()) {
       out.writeLong(enumState.lastEnumeratedSnapshotId().get());
     }
-    // serialize pluggable assigner state
-    out.writeInt(assignerSerializer.getVersion());
-    assignerSerializer.serialize(enumState.assignerState(), out);
+
+    out.writeInt(splitSerializer.getVersion());
+    out.writeInt(enumState.pendingSplits().size());
+    for (Map.Entry<IcebergSourceSplit, IcebergSourceSplitState> e : enumState.pendingSplits().entrySet()) {
+      final byte[] splitBytes = splitSerializer.serialize(e.getKey());
+      out.writeInt(splitBytes.length);
+      out.write(splitBytes);
+      final byte[] splitStateBytes = splitStateSerializer.serialize(e.getValue());
+      out.writeInt(splitStateBytes.length);
+      out.write(splitBytes);
+    }
+
     final byte[] result = out.getCopyOfBuffer();
     out.clear();
     return result;
   }
 
-  @Override
-  public IcebergEnumState<SplitAssignerStateT> deserialize(int version, byte[] serialized) throws IOException {
-    if (version == 1) {
-      return deserializeV1(serialized);
-    }
-    throw new IOException("Unknown version: " + version);
-  }
-
-  private IcebergEnumState<SplitAssignerStateT> deserializeV1(byte[] serialized) throws IOException {
+  private IcebergEnumState deserializeV1(byte[] serialized) throws IOException {
     final DataInputDeserializer in = new DataInputDeserializer(serialized);
-    // deserialize enumerator state
+
     Optional<Long> lastEnumeratedSnapshotId = Optional.empty();
     if (in.readBoolean()) {
       lastEnumeratedSnapshotId = Optional.of(in.readLong());
     }
-    // deserialize assigner state
-    final int assignerSerializerVersion = in.readInt();
-    SplitAssignerStateT assignerState = assignerSerializer
-        .deserialize(assignerSerializerVersion, in);
-    return new IcebergEnumState<>(lastEnumeratedSnapshotId, assignerState);
+
+    final int splitSerializerVersion = in.readInt();
+    final int splitCount = in.readInt();
+    final Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits = new HashMap<>(splitCount);
+    for (int i = 0; i < splitCount; ++i) {
+      final byte[] splitBytes = new byte[in.readInt()];
+      in.read(splitBytes);
+      IcebergSourceSplit split = splitSerializer.deserialize(splitSerializerVersion, splitBytes);
+      final byte[] splitStateBytes = new byte[in.readInt()];
+      in.read(splitStateBytes);
+      IcebergSourceSplitState splitState = splitStateSerializer.deserialize(splitSerializerVersion, splitStateBytes);
+      pendingSplits.put(split, splitState);
+    }
+    return new IcebergEnumState(lastEnumeratedSnapshotId, pendingSplits);
   }
 }

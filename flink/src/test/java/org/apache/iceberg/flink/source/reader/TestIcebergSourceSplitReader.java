@@ -44,7 +44,7 @@ import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.MutableIcebergSourceSplit;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.junit.After;
@@ -145,7 +145,7 @@ public class TestIcebergSourceSplitReader {
     Assert.assertEquals(3, splits.get(0).task().files().size());
 
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new IcebergSourceSplitState(splits.get(0).task(), 0L, 2L));
+        new MutableIcebergSourceSplit(splits.get(0).task(), 0L, 2L));
 
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
@@ -186,7 +186,7 @@ public class TestIcebergSourceSplitReader {
     Assert.assertEquals(3, splits.get(0).task().files().size());
 
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new IcebergSourceSplitState(splits.get(0).task(), 1L, 0L));
+        new MutableIcebergSourceSplit(splits.get(0).task(), 1L, 0L));
 
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
@@ -227,7 +227,7 @@ public class TestIcebergSourceSplitReader {
     Assert.assertEquals(3, splits.get(0).task().files().size());
 
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new IcebergSourceSplitState(splits.get(0).task(), 1L, 1L));
+        new MutableIcebergSourceSplit(splits.get(0).task(), 1L, 1L));
 
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
