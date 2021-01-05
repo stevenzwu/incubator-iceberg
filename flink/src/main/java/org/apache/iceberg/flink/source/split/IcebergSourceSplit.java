@@ -38,8 +38,9 @@ public class IcebergSourceSplit extends FileSourceSplit {
   private final CheckpointedPosition checkpointedPosition;
 
   IcebergSourceSplit(CombinedScanTask task, CheckpointedPosition checkpointedPosition) {
-    // supply dummy values to extend from FileSourceSplit
-    // we can move away from
+    // Supply dummy values so that IcebergSourceSplit extend from FileSourceSplit,
+    // as required by using BulkFormat interface in IcebergSource.
+    // We are hoping to clean this up after FLINK-20174 is resolved.
     super("", new Path("file://dummy"), 0L, 0L);
     this.task = task;
     this.checkpointedPosition = checkpointedPosition;
