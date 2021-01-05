@@ -45,17 +45,17 @@ public abstract class FlinkTestBase extends AbstractTestBase {
 
   @BeforeClass
   public static void startMetastore() {
-    FlinkTestBase.metastore = new TestHiveMetastore();
+    metastore = new TestHiveMetastore();
     metastore.start();
-    FlinkTestBase.hiveConf = metastore.hiveConf();
-    FlinkTestBase.catalog = new HiveCatalog(metastore.hiveConf());
+    hiveConf = metastore.hiveConf();
+    catalog = new HiveCatalog(metastore.hiveConf());
   }
 
   @AfterClass
   public static void stopMetastore() {
     metastore.stop();
     catalog.close();
-    FlinkTestBase.catalog = null;
+    catalog = null;
   }
 
   protected TableEnvironment getTableEnv() {
