@@ -1,0 +1,85 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.iceberg.flink.source.split;
+
+import java.io.IOException;
+import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
+
+public class IcebergSourceSplitStateSerializer implements SimpleVersionedSerializer<IcebergSourceSplitState> {
+
+  public static final IcebergSourceSplitStateSerializer INSTANCE = new IcebergSourceSplitStateSerializer();
+
+  private static final int VERSION = 1;
+
+  private static final ThreadLocal<DataOutputSerializer> SERIALIZER_CACHE =
+      ThreadLocal.withInitial(() -> new DataOutputSerializer(64));
+
+  @Override
+  public int getVersion() {
+    return VERSION;
+  }
+
+  @Override
+  public byte[] serialize(IcebergSourceSplitState splitState) throws IOException {
+    if (splitState.serializedFormCache() != null) {
+      return splitState.serializedFormCache();
+    }
+    return serializeV1(splitState);
+  }
+
+  @Override
+  public IcebergSourceSplitState deserialize(int version, byte[] serialized) throws IOException {
+    switch (version) {
+      case 1:
+        return deserializeV1(serialized);
+      default:
+        throw new IOException("Unknown version: " + version);
+    }
+  }
+
+  private byte[] serializeV1(IcebergSourceSplitState splitState) throws IOException {
+    final DataOutputSerializer out = SERIALIZER_CACHE.get();
+    out.writeUTF(splitState.status().name());
+    if (splitState.assignedSubtaskId() == null) {
+      out.writeBoolean(false);
+    } else {
+      out.writeBoolean(true);
+      out.writeInt(splitState.assignedSubtaskId());
+    }
+    final byte[] result = out.getCopyOfBuffer();
+    out.clear();
+    splitState.serializedFormCache(result);
+    return result;
+  }
+
+  private IcebergSourceSplitState deserializeV1(byte[] serialized) throws IOException {
+    final DataInputDeserializer in = new DataInputDeserializer(serialized);
+    final IcebergSourceSplitState.Status status = IcebergSourceSplitState.Status.valueOf(in.readUTF());
+    final boolean hasAssignedSubtaskId = in.readBoolean();
+    if (hasAssignedSubtaskId) {
+      final int subtaskId = in.readInt();
+      return new IcebergSourceSplitState(status, subtaskId);
+    } else {
+      return new IcebergSourceSplitState(status);
+    }
+  }
+}

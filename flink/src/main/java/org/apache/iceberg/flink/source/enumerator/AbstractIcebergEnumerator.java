@@ -21,41 +21,67 @@ package org.apache.iceberg.flink.source.enumerator;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
+import org.apache.flink.connector.file.src.FileSourceSplit;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
+import org.apache.iceberg.flink.source.assigner.GetSplitResult;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
-import org.apache.iceberg.flink.source.assigner.SplitAssignerState;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-abstract class AbstractIcebergEnumerator<
-    SplitAssignerStateT extends SplitAssignerState> implements
-    SplitEnumerator<IcebergSourceSplit, IcebergEnumState<SplitAssignerStateT>> {
+import static org.apache.iceberg.flink.source.assigner.GetSplitResult.Status.AVAILABLE;
+import static org.apache.iceberg.flink.source.assigner.GetSplitResult.Status.CONSTRAINED;
+import static org.apache.iceberg.flink.source.assigner.GetSplitResult.Status.UNAVAILABLE;
+
+abstract class AbstractIcebergEnumerator implements
+    SplitEnumerator<IcebergSourceSplit, IcebergEnumState> {
 
   private static final Logger LOG = LoggerFactory.getLogger(AbstractIcebergEnumerator.class);
 
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
-  private final SplitAssigner<SplitAssignerStateT> assigner;
+  private final SplitAssigner assigner;
+  private final Map<Integer, String> readersAwaitingSplit;
+  private final AtomicReference<CompletableFuture<Void>> availableFuture;
 
   AbstractIcebergEnumerator(
       SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      SplitAssigner<SplitAssignerStateT> assigner) {
+      SplitAssigner assigner) {
     this.enumContext = enumContext;
     this.assigner = assigner;
+    this.readersAwaitingSplit = new LinkedHashMap<>();
+    this.availableFuture = new AtomicReference<>();
+  }
+
+  @Override
+  public void start() {
+    assigner.start();
+  }
+
+  @Override
+  public void close() throws IOException {
+    assigner.close();
   }
 
   @Override
   public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
-    // no-op. custom event inside handleSourceEvent
+    // Iceberg source uses a custom event inside handleSourceEvent
+    // so that we can carry over the finishedSplitIds
+    throw new UnsupportedOperationException("Iceberg source uses its own SplitRequestEvent");
   }
 
   @Override
@@ -63,39 +89,29 @@ abstract class AbstractIcebergEnumerator<
     if (sourceEvent instanceof IcebergSourceEvents.SplitRequestEvent) {
       final IcebergSourceEvents.SplitRequestEvent splitRequestEvent =
           (IcebergSourceEvents.SplitRequestEvent) sourceEvent;
-      assigner.onSplitsCompletion(subtaskId, splitRequestEvent.finishedSplitIds());
-      assignNextEvents(subtaskId);
+      LOG.error("Received request split event from subtask {}", subtaskId);
+      assigner.onCompletedSplits(splitRequestEvent.finishedSplitIds(), subtaskId);
+      readersAwaitingSplit.put(subtaskId, splitRequestEvent.requesterHostname());
+      assignSplits();
     } else {
-      LOG.error("Received unrecognized event: {}", sourceEvent);
+      LOG.error("Received unrecognized event from subtask {}: {}", subtaskId, sourceEvent);
     }
   }
 
   @Override
   public void addSplitsBack(List<IcebergSourceSplit> splits, int subtaskId) {
-    LOG.info("Add {} assigned splits back to the pool for failed subtask {}: {}",
+    LOG.info("Add {} splits back to the pool for failed subtask {}: {}",
         splits.size(), subtaskId, splits);
-    assigner.addSplits(splits);
+    assigner.onUnassignedSplits(splits, subtaskId);
+    assignSplits();
   }
 
   @Override
   public void addReader(int subtaskId) {
     LOG.info("Added reader {}", subtaskId);
-    // reader requests for split upon start
-    // nothing for enumerator to do upon registration
-
-    // TODO: remove this code along with
-    // the change in IcebergSourceReader.start()
-    // when the ordering bug fix in master branch is ported to 1.11.3.
-    assignNextEvents(subtaskId);
-  }
-
-  @Override
-  public void close() throws IOException {
-
   }
 
   protected Table loadTable(TableLoader tableLoader) {
-    LOG.info("Load table");
     tableLoader.open();
     try (TableLoader loader = tableLoader) {
       return loader.loadTable();
@@ -104,18 +120,52 @@ abstract class AbstractIcebergEnumerator<
     }
   }
 
-  private void assignNextEvents(int subtask) {
-    LOG.info("Subtask {} is requesting a new split", subtask);
-    assigner.getNext(subtask).thenAccept(split -> {
-      if (split != null) {
-        SplitsAssignment assignment = new SplitsAssignment(
-            ImmutableMap.of(subtask, Arrays.asList(split)));
-        enumContext.assignSplits(assignment);
-        LOG.info("Assigned split to subtask {}: {}", subtask, split);
-      } else {
-        enumContext.signalNoMoreSplits(subtask);
-        LOG.info("No more splits available for subtask {}", subtask);
+  private void assignSplits() {
+    final Iterator<Map.Entry<Integer, String>> awaitingReader =
+        readersAwaitingSplit.entrySet().iterator();
+    while (awaitingReader.hasNext()) {
+      final Map.Entry<Integer, String> nextAwaiting = awaitingReader.next();
+      // if the reader that requested another split has failed in the meantime, remove
+      // it from the list of waiting readers
+      if (!enumContext.registeredReaders().containsKey(nextAwaiting.getKey())) {
+        awaitingReader.remove();
+        continue;
       }
-    });
+
+      final String hostname = nextAwaiting.getValue();
+      final int awaitingSubtask = nextAwaiting.getKey();
+      final GetSplitResult getResult = assigner.getNext(hostname);
+      if (getResult.status() == AVAILABLE) {
+        enumContext.assignSplit(getResult.split(), awaitingSubtask);
+        awaitingReader.remove();
+      } else if (getResult.status() == CONSTRAINED) {
+        getAvailableFutureIfNeeded();
+        break;
+      } else if (getResult.status() == UNAVAILABLE) {
+        final boo
+      } else {
+      }
+    }
+  }
+
+  /**
+   * @return true if more splits can be available later
+   * like in the continuous enumerator case
+   */
+  protected abstract boolean handleUnavailable();
+
+  private synchronized void getAvailableFutureIfNeeded() {
+    if (availableFuture.get() != null) {
+      return;
+    }
+    CompletableFuture<Void> future = assigner.isAvailable();
+    future.thenAccept(ignore ->
+        // Must run assignSplits in coordinator thread
+        // because the future may be completed from other threads.
+        // E.g., in event time alignment assigner,
+        // watermark advancement from another source may
+        // cause the available future to be completed
+        enumContext.runInCoordinatorThread(() -> assignSplits()));
+    availableFuture.set(future);
   }
 }

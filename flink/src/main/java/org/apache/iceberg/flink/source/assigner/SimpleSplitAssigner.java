@@ -21,12 +21,13 @@ package org.apache.iceberg.flink.source.assigner;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
+import java.util.Deque;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 
 /**
  * This assigner hands out splits without any guarantee in order or locality.
@@ -34,88 +35,64 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
  * Since all methods are executed by the source coordinator thread,
  * there is no need for locking.
  */
-public class SimpleSplitAssigner implements SplitAssigner<SimpleSplitAssignerState> {
+public class SimpleSplitAssigner implements SplitAssigner {
+  
+  private final Deque<IcebergSourceSplit> pendingSplits;
+  private CompletableFuture<Void> availableFuture;
 
-  private final Queue<IcebergSourceSplit> pendingSplits;
-  private volatile boolean noMoreSplits;
-  private final Map<Integer, Queue<CompletableFuture<IcebergSourceSplit>>> pendingFutures;
-
+  SimpleSplitAssigner(Deque<IcebergSourceSplit> pendingSplits) {
+    this.pendingSplits = pendingSplits;
+  }
   public SimpleSplitAssigner() {
-    this(new SimpleSplitAssignerState());
+    this(new ArrayDeque<>());
   }
 
-  public SimpleSplitAssigner(SimpleSplitAssignerState state) {
-    this.pendingSplits = new ArrayDeque<>(state.getPendingSplits());
-    this.noMoreSplits = state.noMoreSplits();
-    this.pendingFutures = new LinkedHashMap<>();
-  }
-
-  @Override
-  public void addSplits(Collection<IcebergSourceSplit> splits) {
-    pendingSplits.addAll(splits);
-    // check pending futures to see if some can be completed now
-    completePendingFuturesIfNeeded();
+  public SimpleSplitAssigner(Map<IcebergSourceSplit, IcebergSourceSplitState> state) {
+    this(new ArrayDeque<>(state.keySet()));
   }
 
   @Override
-  public void onNoMoreSplits() {
-    noMoreSplits = true;
-    completePendingFuturesIfNeeded();
-  }
-
-  @Override
-  public void onAddedReader(int subtaskId) {
-    // clear up pending futures for the reader
-    // maybe orphaned before the reader restart.
-    pendingFutures.remove(subtaskId);
-  }
-
-  @Override
-  public void onSplitsCompletion(int subtask, Collection<String> completedSplitIds) {
-    // no-op
-  }
-
-  @Override
-  public CompletableFuture<IcebergSourceSplit> getNext(int subtask) {
-    CompletableFuture<IcebergSourceSplit> future = new CompletableFuture<>();
-    IcebergSourceSplit split = pendingSplits.poll();
-    if (split == null && !noMoreSplits) {
-      // more splits may be discovered later
-      pendingFutures.computeIfAbsent(subtask, ignored -> new ArrayDeque<>());
-      pendingFutures.get(subtask).add(future);
+  public GetSplitResult getNext(@Nullable String hostname) {
+    if (pendingSplits.isEmpty()) {
+      return new GetSplitResult(GetSplitResult.Status.UNAVAILABLE);
     } else {
-      // complete the future with a valid split or null (noMoreSplits)
-      future.complete(split);
+      IcebergSourceSplit split = pendingSplits.poll();
+      return new GetSplitResult(GetSplitResult.Status.AVAILABLE, split);
     }
-    return future;
   }
 
   @Override
-  public SimpleSplitAssignerState splitAssignerState() {
-    return new SimpleSplitAssignerState(pendingSplits, noMoreSplits);
+  public void onDiscoveredSplits(Collection<IcebergSourceSplit> splits) {
+    pendingSplits.addAll(splits);
+    completeAvailableFuturesIfNeeded();
   }
 
-  private void completePendingFuturesIfNeeded() {
-    // first check if there are splits available to complete pending futures
-    final Iterator<Map.Entry<Integer, Queue<CompletableFuture<IcebergSourceSplit>>>> awaitingReaderIter =
-        pendingFutures.entrySet().iterator();
-    while (!pendingSplits.isEmpty() && awaitingReaderIter.hasNext()) {
-      final IcebergSourceSplit split = pendingSplits.poll();
-      final Queue<CompletableFuture<IcebergSourceSplit>> futures = awaitingReaderIter.next().getValue();
-      final CompletableFuture<IcebergSourceSplit> future = futures.poll();
-      future.complete(split);
-      if (futures.isEmpty()) {
-        awaitingReaderIter.remove();
-      }
+  @Override
+  public void onUnassignedSplits(Collection<IcebergSourceSplit> splits, int subtaskId) {
+    pendingSplits.addAll(splits);
+    completeAvailableFuturesIfNeeded();
+  }
+
+  @Override
+  public Map<IcebergSourceSplit, IcebergSourceSplitState> checkpointState() {
+    return pendingSplits.stream()
+        .collect(Collectors.toMap(
+            split -> split,
+            split -> new IcebergSourceSplitState(
+                IcebergSourceSplitState.Status.UNASSIGNED)));
+  }
+
+  @Override
+  public synchronized CompletableFuture<Void> isAvailable() {
+    if (availableFuture == null) {
+      availableFuture = new CompletableFuture<>();
     }
-    // if pending splits queue is empty and noMoreSplits is true,
-    // complete all remaining pending futures with null.
-    while (noMoreSplits && awaitingReaderIter.hasNext()) {
-      final Queue<CompletableFuture<IcebergSourceSplit>> futures = awaitingReaderIter.next().getValue();
-      while (!futures.isEmpty()) {
-        futures.poll().complete(null);
-      }
-      awaitingReaderIter.remove();
+    return availableFuture;
+  }
+
+  private synchronized void completeAvailableFuturesIfNeeded() {
+    if (availableFuture != null && !pendingSplits.isEmpty()) {
+      availableFuture.complete(null);
     }
   }
 }
