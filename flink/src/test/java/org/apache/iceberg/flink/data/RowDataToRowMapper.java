@@ -17,23 +17,35 @@
  * under the License.
  */
 
-package org.apache.iceberg.flink.source;
+package org.apache.iceberg.flink.data;
 
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.conversion.DataStructureConverter;
+import org.apache.flink.table.data.conversion.DataStructureConverters;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 
 public class RowDataToRowMapper extends RichMapFunction<RowData, Row> {
 
   private final RowType rowType;
 
+  private transient DataStructureConverter<Object, Object> converter;
+
   public RowDataToRowMapper(RowType rowType) {
     this.rowType = rowType;
   }
 
   @Override
+  public void open(Configuration parameters) throws Exception {
+    this.converter = DataStructureConverters.getConverter(
+        TypeConversions.fromLogicalToDataType(rowType));
+  }
+
+  @Override
   public Row map(RowData value) throws Exception {
-    return null;
+    return (Row) converter.toExternal(value);
   }
 }
