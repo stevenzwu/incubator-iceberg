@@ -26,7 +26,9 @@ import java.util.List;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.AbstractTestBase;
@@ -37,15 +39,18 @@ import org.apache.iceberg.data.GenericAppenderHelper;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
+import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestFixtures;
+import org.apache.iceberg.flink.TestHelpers;
+import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
+import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class TestIcebergSourceContinuous extends AbstractTestBase {
@@ -55,7 +60,6 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
   private String location;
   private TableLoader tableLoader;
 
-  // parametrized variables
   private final FileFormat fileFormat = FileFormat.PARQUET;
 
   private Table table;
@@ -79,18 +83,21 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
   @After
   public void after() throws IOException {
     catalog.close();
+    tableLoader.close();
   }
 
   // need latest change in DataStreamUtils
-  @Ignore
   @Test
   public void testTableScanThenIncremental() throws Exception {
-    final RowType rowType = FlinkSchemaUtil.convert(table.schema());
 
     // snapshot1
-    List<Record> batch1 = RandomGenericData.generate(table.schema(), 2, 0L);
+    final List<Record> batch1 = RandomGenericData.generate(table.schema(), 2, 0L);
     dataAppender.appendToTable(batch1);
-    long snapshotId1 = table.currentSnapshot().snapshotId();
+    final long snapshotId1 = table.currentSnapshot().snapshotId();
+
+    final ScanContext scanContext = new ScanContext()
+        .project(table.schema());
+    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
 
     // start the source and collect output
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -99,12 +106,12 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         IcebergSource.builder()
             .tableLoader(tableLoader)
             .assignerFactory(new SimpleSplitAssignerFactory())
-            .bulkFormat(null)
-            .scanContext(new ScanContext()
-                .project(table.schema()))
+            .bulkFormat(new RowDataIteratorBulkFormat(
+                TableInfo.fromTable(table), scanContext, rowType))
+            .scanContext(scanContext)
             .continuousEnumSettings(ContinuousEnumConfig.builder()
-                .discoveryInterval(Duration.ofMillis(10L))
-                .startingStrategy(ContinuousEnumConfig.StartingStrategy.LATEST_SNAPSHOT)
+                .discoveryInterval(Duration.ofMillis(1000L))
+                .startingStrategy(ContinuousEnumConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
                 .build())
             .build(),
         WatermarkStrategy.noWatermarks(),
@@ -112,13 +119,22 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         TypeInformation.of(RowData.class))
         .map(new RowDataToRowMapper(rowType));
 
-//    final DataStreamUtils.ClientAndIterator<Row> client =
-//        DataStreamUtils.collectWithClient(stream, "Continuous Iceberg Source Test");
-//
-//    final List<Row> result1 = DataStreamUtils.collectRecordsFromUnboundedStream(client, 2);
-//    TestFlinkScan.assertRecords(result1, batch1, table.schema());
-//
-//    // shut down the job, now that we have all the results we expected.
-//    client.client.cancel().get();
+    // TODO: switch to DataStream#executeAndCollectWithClient() when FLINK-20871 is resolved
+    final ClientAndIterator<Row> clientAndIterator =
+        DataStreamUtils.collectWithClient(stream, "Continuous Iceberg Source Test");
+
+    final List<Row> result1 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
+    TestHelpers.assertRecords(result1, batch1, table.schema());
+
+    // snapshot2
+    final List<Record> batch2 = RandomGenericData.generate(table.schema(), 2, 1L);
+    dataAppender.appendToTable(batch2);
+    final long snapshotId2 = table.currentSnapshot().snapshotId();
+
+    final List<Row> result2 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
+    TestHelpers.assertRecords(result2, batch2, table.schema());
+
+    // shut down the job, now that we have all the results we expected.
+    clientAndIterator.client.cancel().get();
   }
 }

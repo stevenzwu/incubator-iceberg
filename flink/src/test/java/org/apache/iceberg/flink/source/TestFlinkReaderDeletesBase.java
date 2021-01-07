@@ -19,8 +19,9 @@
 
 package org.apache.iceberg.flink.source;
 
+import java.io.File;
 import java.util.Map;
-import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -31,22 +32,25 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.DeleteReadTests;
-import org.apache.iceberg.hive.HiveCatalog;
-import org.apache.iceberg.hive.TestHiveMetastore;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public abstract class TestFlinkReaderDeletesBase extends DeleteReadTests {
 
+  @ClassRule
+  public static final TemporaryFolder TEMP_FOLDER = new TemporaryFolder();
+
   protected static String databaseName = "default";
 
-  protected static HiveConf hiveConf = null;
-  protected static HiveCatalog catalog = null;
-  protected static TestHiveMetastore metastore = null;
+  protected static HadoopCatalog catalog = null;
+  protected static String warehouseLocation = null;
 
   protected final FileFormat format;
 
@@ -64,20 +68,16 @@ public abstract class TestFlinkReaderDeletesBase extends DeleteReadTests {
   }
 
   @BeforeClass
-  public static void startMetastore() {
-    metastore = new TestHiveMetastore();
-    metastore.start();
-    hiveConf = metastore.hiveConf();
-    catalog = new HiveCatalog(hiveConf);
+  public static void startMetastore() throws Exception {
+    Configuration hadoopConf = new Configuration();
+    File warehouseFile = TEMP_FOLDER.newFolder();
+    warehouseLocation = "file:" + warehouseFile;
+    catalog = new HadoopCatalog(hadoopConf, warehouseLocation);
   }
 
   @AfterClass
-  public static void stopMetastore() {
+  public static void stopMetastore() throws Exception {
     catalog.close();
-    metastore.stop();
-    catalog = null;
-    metastore = null;
-    hiveConf = null;
   }
 
   @Override
