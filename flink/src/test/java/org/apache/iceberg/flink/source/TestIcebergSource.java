@@ -26,23 +26,23 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableColumn;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
 import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
-import org.apache.iceberg.flink.TestHelpers;
+import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
-import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
+import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -108,7 +108,7 @@ public class TestIcebergSource extends TestFlinkScan {
     }
     final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
 
-    final DataStream<RowData> stream = env.fromSource(
+    final DataStream<Row> stream = env.fromSource(
         IcebergSource.builder()
             .tableLoader(tableLoader())
             .assignerFactory(new SimpleSplitAssignerFactory())
@@ -118,10 +118,12 @@ public class TestIcebergSource extends TestFlinkScan {
         .build(),
         WatermarkStrategy.noWatermarks(),
         "testBasicRead",
-        TypeInformation.of(RowData.class));
+        TypeInformation.of(RowData.class))
+        .map(new RowDataToRowMapper(rowType));
 
-    final List<RowData> result = ImmutableList.copyOf(DataStreamUtils.collect(stream));
-    return TestHelpers.convertRowDataToRow(result, rowType);
+    try (CloseableIterator<Row> iter = stream.executeAndCollect()) {
+      return Lists.newArrayList(iter);
+    }
   }
 
 }
