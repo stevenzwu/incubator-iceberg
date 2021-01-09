@@ -90,7 +90,7 @@ public class TestHelpers {
   }
 
   public static List<Row> convertRowDataToRow(List<RowData> rowDataList, RowType rowType) {
-    DataStructureConverter<Object, Object> converter = DataStructureConverters.getConverter(
+    final DataStructureConverter<Object, Object> converter = DataStructureConverters.getConverter(
         TypeConversions.fromLogicalToDataType(rowType));
     return rowDataList.stream()
         .map(converter::toExternal)
