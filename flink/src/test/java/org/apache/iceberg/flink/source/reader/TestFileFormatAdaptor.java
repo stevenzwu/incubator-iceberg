@@ -222,15 +222,17 @@ public class TestFileFormatAdaptor {
 
   private List<Row> toRows(final BulkFormat.RecordIterator<RowData> iter,
                            final long exptectedFileOffset,
-                           long startRecordOffset) {
+                           final long startRecordOffset) {
     if (iter == null) {
       return Collections.emptyList();
     }
     final List<Row> result = new ArrayList<>();
     RecordAndPosition<RowData> recordAndPosition;
+    long recordOffset = startRecordOffset;
     while ((recordAndPosition = iter.next()) != null) {
       Assert.assertEquals(exptectedFileOffset, recordAndPosition.getOffset());
-      Assert.assertEquals(++startRecordOffset, recordAndPosition.getRecordSkipCount());
+      Assert.assertEquals(recordOffset, recordAndPosition.getRecordSkipCount() - 1);
+      recordOffset++;
       final Row row = (Row) rowDataConverter.toExternal(recordAndPosition.getRecord());
       result.add(row);
     }
