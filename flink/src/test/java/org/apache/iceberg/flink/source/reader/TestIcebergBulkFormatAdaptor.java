@@ -54,7 +54,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class TestFileFormatAdaptor {
+public class TestIcebergBulkFormatAdaptor {
 
   @ClassRule
   public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
@@ -68,7 +68,7 @@ public class TestFileFormatAdaptor {
       TypeConversions.fromLogicalToDataType(rowType));
   private static final org.apache.flink.configuration.Configuration flinkConfig =
       new org.apache.flink.configuration.Configuration();
-  private static final FileFormatAdaptor<RowData> fileFormatAdaptor = new FileFormatAdaptor<>(
+  private static final IcebergBulkFormatAdaptor<RowData> icebergBulkFormatAdaptor = new IcebergBulkFormatAdaptor<>(
       new ParquetColumnarRowInputFormat(new Configuration(),
           rowType, 128, false, true));
 
@@ -117,7 +117,7 @@ public class TestFileFormatAdaptor {
 
   @Test
   public void testNoCheckpointedPosition() throws IOException {
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.createReader(flinkConfig, icebergSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.createReader(flinkConfig, icebergSplit);
 
     final BulkFormat.RecordIterator<RowData> iter1 = reader.readBatch();
     final List<Row> rows1 = toRows(iter1, 0L, 0L);
@@ -137,7 +137,7 @@ public class TestFileFormatAdaptor {
     final IcebergSourceSplit checkpointedSplit = new IcebergSourceSplit(
         icebergSplit.task(),
         new CheckpointedPosition(0L, 0L));
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
 
     final BulkFormat.RecordIterator<RowData> iter1 = reader.readBatch();
     final List<Row> rows1 = toRows(iter1, 0L, 0L);
@@ -157,7 +157,7 @@ public class TestFileFormatAdaptor {
     final IcebergSourceSplit checkpointedSplit = new IcebergSourceSplit(
         icebergSplit.task(),
         new CheckpointedPosition(0L, 1L));
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
 
     final BulkFormat.RecordIterator<RowData> iter1 = reader.readBatch();
     final List<Row> rows1 = toRows(iter1, 0L, 1L);
@@ -177,7 +177,7 @@ public class TestFileFormatAdaptor {
     final IcebergSourceSplit checkpointedSplit = new IcebergSourceSplit(
         icebergSplit.task(),
         new CheckpointedPosition(0L, 2L));
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
 
     final BulkFormat.RecordIterator<RowData> iter2 = reader.readBatch();
     final List<Row> rows2 = toRows(iter2, 1L, 0L);
@@ -193,7 +193,7 @@ public class TestFileFormatAdaptor {
     final IcebergSourceSplit checkpointedSplit = new IcebergSourceSplit(
         icebergSplit.task(),
         new CheckpointedPosition(1L, 0L));
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
 
     final BulkFormat.RecordIterator<RowData> iter2 = reader.readBatch();
     final List<Row> rows2 = toRows(iter2, 1L, 0L);
@@ -209,7 +209,7 @@ public class TestFileFormatAdaptor {
     final IcebergSourceSplit checkpointedSplit = new IcebergSourceSplit(
         icebergSplit.task(),
         new CheckpointedPosition(1L, 1L));
-    final BulkFormat.Reader<RowData> reader = fileFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
+    final BulkFormat.Reader<RowData> reader = icebergBulkFormatAdaptor.restoreReader(flinkConfig, checkpointedSplit);
 
     final BulkFormat.RecordIterator<RowData> iter2 = reader.readBatch();
     final List<Row> rows2 = toRows(iter2, 1L, 1L);

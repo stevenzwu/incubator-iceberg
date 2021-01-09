@@ -47,7 +47,7 @@ import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
-import org.apache.iceberg.flink.source.reader.FileFormatAdaptor;
+import org.apache.iceberg.flink.source.reader.IcebergBulkFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
 import org.junit.Assert;
@@ -107,7 +107,7 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         IcebergSource.builder()
             .tableLoader(tableLoader)
             .assignerFactory(new SimpleSplitAssignerFactory())
-            .bulkFormat(new FileFormatAdaptor(new ParquetColumnarRowInputFormat(
+            .bulkFormat(new IcebergBulkFormatAdaptor(new ParquetColumnarRowInputFormat(
                 new Configuration(), rowType, 128, false, true)))
             .scanContext(scanContext)
             .continuousEnumSettings(ContinuousEnumConfig.builder()

@@ -41,22 +41,22 @@ import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
  *
  * Note that Flink BulkFormat may not support row deletes like {@link RowDataIteratorBulkFormat}
  */
-public class FileFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSplit> {
+public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSplit> {
 
-  private final BulkFormat<T, FileSourceSplit> fileBulkFormat;
+  private final BulkFormat<T, FileSourceSplit> bulkFormat;
 
-  public FileFormatAdaptor(BulkFormat<T, FileSourceSplit> fileBulkFormat) {
-    this.fileBulkFormat = fileBulkFormat;
+  public IcebergBulkFormatAdaptor(BulkFormat<T, FileSourceSplit> bulkFormat) {
+    this.bulkFormat = bulkFormat;
   }
 
   @Override
   public Reader<T> createReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(fileBulkFormat, config, split, false);
+    return new ReaderAdaptor<T>(bulkFormat, config, split, false);
   }
 
   @Override
   public Reader<T> restoreReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(fileBulkFormat, config, split, true);
+    return new ReaderAdaptor<T>(bulkFormat, config, split, true);
   }
 
   @Override
@@ -66,7 +66,7 @@ public class FileFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSplit> {
 
   @Override
   public TypeInformation<T> getProducedType() {
-    return fileBulkFormat.getProducedType();
+    return bulkFormat.getProducedType();
   }
 
   private static final class ReaderAdaptor<T> implements BulkFormat.Reader<T> {
