@@ -43,11 +43,11 @@ public class IcebergSourceSplit extends FileSourceSplit {
    */
   @Nullable private transient byte[] serializedFormCache;
 
-  IcebergSourceSplit(CombinedScanTask task, CheckpointedPosition checkpointedPosition) {
+  public IcebergSourceSplit(CombinedScanTask task, CheckpointedPosition checkpointedPosition) {
     // Supply dummy values so that IcebergSourceSplit extend from FileSourceSplit,
     // as required by using BulkFormat interface in IcebergSource.
     // We are hoping to clean this up after FLINK-20174 is resolved.
-    super("", new Path("file://dummy"), 0L, 0L);
+    super("", new Path("file:///dummy"), 0L, 0L);
     this.task = task;
     this.checkpointedPosition = checkpointedPosition;
   }

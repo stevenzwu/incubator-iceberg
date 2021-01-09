@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.util.List;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.formats.parquet.ParquetColumnarRowInputFormat;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -33,20 +34,20 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.AbstractTestBase;
 import org.apache.flink.types.Row;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.GenericAppenderHelper;
 import org.apache.iceberg.data.RandomGenericData;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.flink.FlinkSchemaUtil;
-import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
-import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
+import org.apache.iceberg.flink.source.reader.FileFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
 import org.junit.Assert;
@@ -106,8 +107,8 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         IcebergSource.builder()
             .tableLoader(tableLoader)
             .assignerFactory(new SimpleSplitAssignerFactory())
-            .bulkFormat(new RowDataIteratorBulkFormat(
-                TableInfo.fromTable(table), scanContext, rowType))
+            .bulkFormat(new FileFormatAdaptor(new ParquetColumnarRowInputFormat(
+                new Configuration(), rowType, 128, false, true)))
             .scanContext(scanContext)
             .continuousEnumSettings(ContinuousEnumConfig.builder()
                 .discoveryInterval(Duration.ofMillis(1000L))
