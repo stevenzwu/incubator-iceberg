@@ -19,7 +19,6 @@
 
 package org.apache.iceberg.flink.source;
 
-import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -50,6 +49,7 @@ import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
 import org.apache.iceberg.flink.source.reader.FlinkBulkFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
