@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink.source;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -47,7 +48,7 @@ import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
-import org.apache.iceberg.flink.source.reader.IcebergBulkFormatAdaptor;
+import org.apache.iceberg.flink.source.reader.FlinkBulkFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.junit.After;
 import org.junit.Assert;
@@ -107,8 +108,11 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         IcebergSource.builder()
             .tableLoader(tableLoader)
             .assignerFactory(new SimpleSplitAssignerFactory())
-            .bulkFormat(new IcebergBulkFormatAdaptor(new ParquetColumnarRowInputFormat(
-                new Configuration(), rowType, 128, false, true)))
+            .bulkFormat(new FlinkBulkFormatAdaptor<>(ImmutableMap.of(
+                FileFormat.PARQUET,
+                new ParquetColumnarRowInputFormat(new Configuration(),
+                    rowType, 128, false, true)
+                )))
             .scanContext(scanContext)
             .continuousEnumSettings(ContinuousEnumConfig.builder()
                 .discoveryInterval(Duration.ofMillis(1000L))

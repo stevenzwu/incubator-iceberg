@@ -22,6 +22,9 @@ package org.apache.iceberg.flink.source.reader;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
@@ -31,32 +34,40 @@ import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.flink.connector.file.src.util.MutableRecordAndPosition;
 import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.flink.core.fs.Path;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 
 /**
- * This adaptor bridges the difference between
- * IcebergSourceSplit and FileSourceSplit.
- *
+ * This adaptor use Flink BulkFormat implementation to read data file.
  * Note that Flink BulkFormat may not support row deletes like {@link RowDataIteratorBulkFormat}
  */
-public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSplit> {
+public class FlinkBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSplit> {
 
-  private final BulkFormat<T, FileSourceSplit> bulkFormat;
+  private final Map<FileFormat, BulkFormat<T, FileSourceSplit>> bulkFormatProvider;
+  private final TypeInformation<T> producedType;
 
-  public IcebergBulkFormatAdaptor(BulkFormat<T, FileSourceSplit> bulkFormat) {
-    this.bulkFormat = bulkFormat;
+  public FlinkBulkFormatAdaptor(Map<FileFormat, BulkFormat<T, FileSourceSplit>> bulkFormatProvider) {
+    this.bulkFormatProvider = bulkFormatProvider;
+    // validate that all BulkFormat produce the same type
+    List<TypeInformation<T>> uniqueTypes = bulkFormatProvider.values().stream()
+        .map(bulkFormat -> bulkFormat.getProducedType())
+        .distinct()
+        .collect(Collectors.toList());
+    Preconditions.checkArgument(uniqueTypes.size() == 1,
+        "BulkFormats have the different producedType: " + uniqueTypes);
+    producedType = uniqueTypes.get(0);
   }
 
   @Override
   public Reader<T> createReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(bulkFormat, config, split, false);
+    return new ReaderAdaptor<T>(bulkFormatProvider, config, split, false);
   }
 
   @Override
   public Reader<T> restoreReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(bulkFormat, config, split, true);
+    return new ReaderAdaptor<T>(bulkFormatProvider, config, split, true);
   }
 
   @Override
@@ -66,12 +77,12 @@ public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceS
 
   @Override
   public TypeInformation<T> getProducedType() {
-    return bulkFormat.getProducedType();
+    return producedType;
   }
 
   private static final class ReaderAdaptor<T> implements BulkFormat.Reader<T> {
 
-    private final BulkFormat<T, FileSourceSplit> fileBulkFormat;
+    private final Map<FileFormat, BulkFormat<T, FileSourceSplit>> bulkFormatProvider;
     private final Configuration config;
     private final Iterator<FileScanTask> fileIterator;
     private final boolean isRestored;
@@ -81,12 +92,12 @@ public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceS
     private Reader<T> currentReader;
 
     ReaderAdaptor(
-        BulkFormat<T, FileSourceSplit> fileBulkFormat,
+        Map<FileFormat, BulkFormat<T, FileSourceSplit>> bulkFormatProvider,
         Configuration config,
         IcebergSourceSplit icebergSplit,
         boolean isRestored) throws IOException {
       this.config = config;
-      this.fileBulkFormat = fileBulkFormat;
+      this.bulkFormatProvider = bulkFormatProvider;
       this.fileIterator = icebergSplit.task().files().iterator();
       this.isRestored = isRestored;
 
@@ -151,6 +162,11 @@ public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceS
     private void setupReader(long skipRecordCount) throws IOException {
       if (fileIterator.hasNext()) {
         final FileScanTask fileScanTask = fileIterator.next();
+        final FileFormat fileFormat = fileScanTask.file().format();
+        if (!bulkFormatProvider.containsKey(fileFormat)) {
+          throw new IOException("Unsupported file format: " + fileFormat);
+        }
+        final BulkFormat<T, FileSourceSplit> bulkFormat = bulkFormatProvider.get(fileFormat);
         fileOffset++;
         final FileSourceSplit fileSourceSplit = new FileSourceSplit(
             "",
@@ -163,9 +179,9 @@ public class IcebergBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceS
             // we just always set the file offset to NO_OFFSET.
             new CheckpointedPosition(CheckpointedPosition.NO_OFFSET, skipRecordCount));
         if (isRestored) {
-          currentReader = fileBulkFormat.restoreReader(config, fileSourceSplit);
+          currentReader = bulkFormat.restoreReader(config, fileSourceSplit);
         } else {
-          currentReader = fileBulkFormat.createReader(config, fileSourceSplit);
+          currentReader = bulkFormat.createReader(config, fileSourceSplit);
         }
       } else {
         closeCurrentReader();
