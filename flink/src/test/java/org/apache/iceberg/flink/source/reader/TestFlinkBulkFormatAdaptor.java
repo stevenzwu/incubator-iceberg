@@ -19,6 +19,7 @@
 
 package org.apache.iceberg.flink.source.reader;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,19 +48,23 @@ import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-public class TestIcebergBulkFormatAdaptor {
+@RunWith(Parameterized.class)
+public class TestFlinkBulkFormatAdaptor {
 
   @ClassRule
   public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
-  private static final FileFormat fileFormat = FileFormat.PARQUET;
   private static final ScanContext scanContext = new ScanContext()
       .project(TestFixtures.SCHEMA);
   private static final RowType rowType = FlinkSchemaUtil
@@ -68,19 +73,15 @@ public class TestIcebergBulkFormatAdaptor {
       TypeConversions.fromLogicalToDataType(rowType));
   private static final org.apache.flink.configuration.Configuration flinkConfig =
       new org.apache.flink.configuration.Configuration();
-  private static final IcebergBulkFormatAdaptor<RowData> icebergBulkFormatAdaptor = new IcebergBulkFormatAdaptor<>(
-      new ParquetColumnarRowInputFormat(new Configuration(),
-          rowType, 128, false, true));
+  private static final FlinkBulkFormatAdaptor<RowData> icebergBulkFormatAdaptor =
+      new FlinkBulkFormatAdaptor<>(ImmutableMap.of(
+          FileFormat.PARQUET,
+          new ParquetColumnarRowInputFormat(new Configuration(),
+              rowType, 128, false, true)
+      ));
 
   private static String warehouse;
   private static HadoopCatalog catalog;
-  private static Table table;
-  private static GenericAppenderHelper dataAppender;
-
-  private static List<Record> recordBatch1;
-  private static List<Record> recordBatch2;
-  private static List<Record> recordBatch3;
-  private static IcebergSourceSplit icebergSplit;
 
   @BeforeClass
   public static void beforeClass() throws IOException {
@@ -90,7 +91,39 @@ public class TestIcebergBulkFormatAdaptor {
     warehouse = "file:" + warehouseFile;
     org.apache.hadoop.conf.Configuration hadoopConf = new org.apache.hadoop.conf.Configuration();
     catalog = new HadoopCatalog(hadoopConf, warehouse);
+  }
+
+  @AfterClass
+  public static void afterClass() throws IOException {
+    catalog.close();
+  }
+
+  @Parameterized.Parameters(name = "fileFormat={0}")
+  public static Object[][] parameters() {
+    return new Object[][] {
+//        new Object[] { FileFormat.AVRO },
+//        new Object[] { FileFormat.ORC },
+        new Object[] { FileFormat.PARQUET }
+    };
+  }
+
+  private final FileFormat fileFormat;
+
+  public TestFlinkBulkFormatAdaptor(FileFormat fileFormat) {
+    this.fileFormat = fileFormat;
+  }
+
+  private Table table;
+  private GenericAppenderHelper dataAppender;
+  private List<Record> recordBatch1;
+  private List<Record> recordBatch2;
+  private List<Record> recordBatch3;
+  private IcebergSourceSplit icebergSplit;
+
+  @Before
+  public void before() throws IOException {
     table = catalog.createTable(TestFixtures.TABLE_IDENTIFIER, TestFixtures.SCHEMA);
+
     dataAppender = new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER);
 
     // snapshot1
@@ -109,10 +142,9 @@ public class TestIcebergBulkFormatAdaptor {
     Assert.assertEquals(3, icebergSplit.task().files().size());
   }
 
-  @AfterClass
-  public static void afterClass() throws IOException {
+  @After
+  public void after() throws IOException {
     catalog.dropTable(TestFixtures.TABLE_IDENTIFIER);
-    catalog.close();
   }
 
   @Test
