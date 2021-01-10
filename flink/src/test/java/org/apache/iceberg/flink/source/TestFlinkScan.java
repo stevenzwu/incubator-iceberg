@@ -195,7 +195,7 @@ public abstract class TestFlinkScan extends AbstractTestBase {
   private void validateIdentityPartitionProjections(
       Table table, List<String> projectedFields, List<Record> inputRecords) throws Exception {
     List<Row> rows = runWithProjection(projectedFields.toArray(new String[0]));
-
+    Assert.assertEquals(inputRecords.size(), rows.size());
     for (int pos = 0; pos < inputRecords.size(); pos++) {
       Record inputRecord = inputRecords.get(pos);
       Row actualRecord = rows.get(pos);
