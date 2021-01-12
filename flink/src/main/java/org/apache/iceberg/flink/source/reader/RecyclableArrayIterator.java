@@ -29,7 +29,7 @@ import org.apache.flink.connector.file.src.util.RecordAndPosition;
  * Similar to the ArrayResultIterator.
  * Main difference is the records array can be recycled back to a pool.
  */
-public final class ReusableArrayIterator<E> implements BulkFormat.RecordIterator<E> {
+public final class RecyclableArrayIterator<E> implements BulkFormat.RecordIterator<E> {
 
   private Pool.Recycler<E[]> recycler;
   private E[] records;
@@ -38,7 +38,7 @@ public final class ReusableArrayIterator<E> implements BulkFormat.RecordIterator
 
   private final MutableRecordAndPosition<E> recordAndPosition;
 
-  public ReusableArrayIterator(Pool.Recycler<E[]> recycler) {
+  public RecyclableArrayIterator(Pool.Recycler<E[]> recycler) {
     this.recycler = recycler;
     this.recordAndPosition = new MutableRecordAndPosition<>();
   }
