@@ -100,13 +100,11 @@ public class RowDataIteratorBulkFormat extends IcebergBulkFormat<RowData> {
     private final DataIterator<RowData> inputIterator;
     private final int batchSize;
     private final Pool<RowData[]> pool;
-    private final ReusableArrayIterator<RowData> outputIterator;
 
     RowDataIteratorReader(Configuration config, DataIterator<RowData> inputIterator) {
       this.inputIterator = inputIterator;
       this.batchSize = config.getInteger(IcebergSourceOptions.READER_FETCH_BATCH_SIZE);
       this.pool = createPoolOfBatches(config.getInteger(SourceReaderOptions.ELEMENT_QUEUE_CAPACITY));
-      this.outputIterator = new ReusableArrayIterator<>(pool.recycler());
     }
 
     @Nullable
@@ -128,6 +126,8 @@ public class RowDataIteratorBulkFormat extends IcebergBulkFormat<RowData> {
         return null;
       } else {
         DataIterator.Position position = inputIterator.position();
+        final RecyclableArrayIterator<RowData> outputIterator =
+            new RecyclableArrayIterator<>(pool.recycler());
         outputIterator.set(batch, num, position.fileOffset(),
             position.recordOffset() - num);
         return outputIterator;
