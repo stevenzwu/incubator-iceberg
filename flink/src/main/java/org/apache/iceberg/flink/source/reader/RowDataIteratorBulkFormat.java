@@ -40,7 +40,7 @@ import org.apache.iceberg.flink.source.RowDataIterator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 
-public class RowDataIteratorBulkFormat extends IcebergBulkFormat<RowData> {
+public class RowDataIteratorBulkFormat implements BulkFormat<RowData, IcebergSourceSplit> {
 
   private final TableInfo tableInfo;
   private final ScanContext scanContext;
