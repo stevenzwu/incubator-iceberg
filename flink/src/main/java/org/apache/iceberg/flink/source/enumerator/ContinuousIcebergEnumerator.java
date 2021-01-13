@@ -109,7 +109,9 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
 
   private void processDiscoveredSplits(SplitPlanningResult result, Throwable error) {
     if (error == null) {
-      assigner.onDiscoveredSplits(result.splits());
+      if (!result.splits().isEmpty()) {
+        assigner.onDiscoveredSplits(result.splits());
+      }
       lastEnumeratedSnapshotId = Optional.of(result.lastEnumeratedSnapshotId());
     } else {
       LOG.error("Failed to enumerate splits", error);

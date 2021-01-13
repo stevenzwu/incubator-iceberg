@@ -23,9 +23,13 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
+import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 
+/**
+ * Enumerator should call the assigner APIs from the coordinator thread.
+ */
 public interface SplitAssigner extends AutoCloseable {
 
   /**
@@ -76,6 +80,17 @@ public interface SplitAssigner extends AutoCloseable {
    * Enumerator can get a notification via CompletableFuture
    * when the assigner has more splits available later.
    * Enumerator should schedule assignment in the thenAccept action of the future.
+   *
+   * Assigner will return the same future if this method is called again
+   * before the previous future is completed.
+   *
+   * The future can be completed from other thread,
+   * e.g. the coordinator thread from another thread
+   * for event time alignment.
+   *
+   * If enumerator need to trigger action upon the future completion,
+   * it may want to run it in the coordinator thread
+   * using {@link SplitEnumeratorContext#runInCoordinatorThread(Runnable)}.
    */
   CompletableFuture<Void> isAvailable();
 }

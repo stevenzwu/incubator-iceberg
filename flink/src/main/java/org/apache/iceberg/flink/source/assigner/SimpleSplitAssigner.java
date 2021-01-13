@@ -95,5 +95,6 @@ public class SimpleSplitAssigner implements SplitAssigner {
     if (availableFuture != null && !pendingSplits.isEmpty()) {
       availableFuture.complete(null);
     }
+    availableFuture = null;
   }
 }
