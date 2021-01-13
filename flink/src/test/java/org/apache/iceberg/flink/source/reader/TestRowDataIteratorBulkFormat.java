@@ -20,42 +20,34 @@
 package org.apache.iceberg.flink.source.reader;
 
 import org.apache.flink.connector.file.src.reader.BulkFormat;
-import org.apache.flink.formats.parquet.ParquetColumnarRowInputFormat;
 import org.apache.flink.table.data.RowData;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
+import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-public class TestFlinkBulkFormatAdaptor extends BulkFormatTestBase {
-
-  private static final FlinkBulkFormatAdaptor<RowData> icebergBulkFormatAdaptor =
-      new FlinkBulkFormatAdaptor<>(ImmutableMap.of(
-          FileFormat.PARQUET,
-          new ParquetColumnarRowInputFormat(new Configuration(),
-              rowType, 128, false, true)
-      ));
+@RunWith(Parameterized.class)
+public class TestRowDataIteratorBulkFormat extends BulkFormatTestBase {
 
   @Parameterized.Parameters(name = "fileFormat={0}")
   public static Object[][] parameters() {
     return new Object[][] {
-        // TODO: bring other formats back once Flink added those support
-//        new Object[] { FileFormat.AVRO },
-//        new Object[] { FileFormat.ORC },
+        new Object[] { FileFormat.AVRO },
+        new Object[] { FileFormat.ORC },
         new Object[] { FileFormat.PARQUET }
     };
   }
 
   private final FileFormat fileFormat;
 
-  public TestFlinkBulkFormatAdaptor(FileFormat fileFormat) {
+  public TestRowDataIteratorBulkFormat(FileFormat fileFormat) {
     this.fileFormat = fileFormat;
   }
 
   @Override
   protected BulkFormat<RowData, IcebergSourceSplit> getBulkFormat() {
-    return icebergBulkFormatAdaptor;
+    return new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType);
   }
 
   @Override
