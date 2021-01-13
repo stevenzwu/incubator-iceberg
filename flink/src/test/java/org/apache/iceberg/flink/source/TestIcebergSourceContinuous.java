@@ -22,18 +22,18 @@ package org.apache.iceberg.flink.source;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.parquet.ParquetColumnarRowInputFormat;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.operators.collect.ClientAndIterator;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.AbstractTestBase;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
@@ -125,29 +125,38 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         .map(new RowDataToRowMapper(rowType));
 
     // TODO: switch to DataStream#executeAndCollectWithClient() when FLINK-20871 is resolved
-    final ClientAndIterator<Row> clientAndIterator =
-        DataStreamUtils.collectWithClient(stream, "Continuous Iceberg Source Test");
+    try (CloseableIterator<Row> iter = stream.executeAndCollect(getClass().getSimpleName())) {
 
-    final List<Row> result1 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
-    TestHelpers.assertRecords(result1, batch1, table.schema());
+      final List<Row> result1 = waitForResult(iter, 2);
+      TestHelpers.assertRecords(result1, batch1, table.schema());
 
-    // snapshot2
-    final List<Record> batch2 = RandomGenericData.generate(table.schema(), 2, 1L);
-    dataAppender.appendToTable(batch2);
-    final long snapshotId2 = table.currentSnapshot().snapshotId();
+      // snapshot2
+      final List<Record> batch2 = RandomGenericData.generate(table.schema(), 2, 1L);
+      dataAppender.appendToTable(batch2);
+      final long snapshotId2 = table.currentSnapshot().snapshotId();
 
-    final List<Row> result2 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
-    TestHelpers.assertRecords(result2, batch2, table.schema());
+      final List<Row> result2 = waitForResult(iter, 2);
+      TestHelpers.assertRecords(result2, batch2, table.schema());
 
-    // snapshot3
-    final List<Record> batch3 = RandomGenericData.generate(table.schema(), 2, 2L);
-    dataAppender.appendToTable(batch3);
-    final long snapshotId3 = table.currentSnapshot().snapshotId();
+      // snapshot3
+      final List<Record> batch3 = RandomGenericData.generate(table.schema(), 2, 2L);
+      dataAppender.appendToTable(batch3);
+      final long snapshotId3 = table.currentSnapshot().snapshotId();
 
-    final List<Row> result3 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
-    TestHelpers.assertRecords(result3, batch3, table.schema());
+      final List<Row> result3 = waitForResult(iter, 2);
+      TestHelpers.assertRecords(result3, batch3, table.schema());
+    }
+  }
 
-    // shut down the job, now that we have all the results we expected.
-    clientAndIterator.client.cancel().get();
+  private List<Row> waitForResult(CloseableIterator<Row> iter, int limit) {
+    List<Row> results = new ArrayList<>(limit);
+    while (results.size() < limit) {
+      if (iter.hasNext()) {
+        results.add(iter.next());
+      } else {
+        break;
+      }
+    }
+    return results;
   }
 }
