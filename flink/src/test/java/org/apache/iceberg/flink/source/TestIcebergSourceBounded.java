@@ -47,9 +47,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class TestIcebergSource extends TestFlinkScan {
+public class TestIcebergSourceBounded extends TestFlinkScan {
 
-  public TestIcebergSource(String fileFormat) {
+  public TestIcebergSourceBounded(String fileFormat) {
     super(fileFormat);
   }
 
