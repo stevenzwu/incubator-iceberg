@@ -139,6 +139,14 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
     final List<Row> result2 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
     TestHelpers.assertRecords(result2, batch2, table.schema());
 
+    // snapshot3
+    final List<Record> batch3 = RandomGenericData.generate(table.schema(), 2, 2L);
+    dataAppender.appendToTable(batch3);
+    final long snapshotId3 = table.currentSnapshot().snapshotId();
+
+    final List<Row> result3 = DataStreamUtils.collectRecordsFromUnboundedStream(clientAndIterator, 2);
+    TestHelpers.assertRecords(result3, batch3, table.schema());
+
     // shut down the job, now that we have all the results we expected.
     clientAndIterator.client.cancel().get();
   }

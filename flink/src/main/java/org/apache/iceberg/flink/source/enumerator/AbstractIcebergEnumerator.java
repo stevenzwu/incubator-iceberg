@@ -112,6 +112,7 @@ abstract class AbstractIcebergEnumerator implements
   }
 
   private void assignSplits() {
+    LOG.info("Assigning splits for {} awaiting readers", readersAwaitingSplit.size());
     final Iterator<Map.Entry<Integer, String>> awaitingReader =
         readersAwaitingSplit.entrySet().iterator();
     while (awaitingReader.hasNext()) {
@@ -165,7 +166,12 @@ abstract class AbstractIcebergEnumerator implements
         // E.g., in event time alignment assigner,
         // watermark advancement from another source may
         // cause the available future to be completed
-        enumContext.runInCoordinatorThread(() -> assignSplits()));
+        enumContext.runInCoordinatorThread(() -> {
+          LOG.debug("Executing callback of assignSplits");
+          availableFuture.set(null);
+          assignSplits();
+        }));
     availableFuture.set(future);
+    LOG.debug("Registered callback for future available splits");
   }
 }
