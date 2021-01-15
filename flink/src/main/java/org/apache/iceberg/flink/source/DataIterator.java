@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
@@ -54,12 +53,6 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
   private Position position;
 
   DataIterator(CombinedScanTask combinedTask, FileIO io, EncryptionManager encryption) {
-    this(combinedTask, io, encryption, null);
-  }
-
-  DataIterator(CombinedScanTask combinedTask, FileIO io, EncryptionManager encryption,
-               @Nullable CheckpointedPosition checkpointedPosition) {
-
     this.combinedTask = combinedTask;
     Map<String, ByteBuffer> keyMetadata = Maps.newHashMap();
     combinedTask.files().stream()
@@ -91,7 +84,6 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
   }
 
   public void seek(CheckpointedPosition checkpointedPosition)  {
-    updateCurrentIterator();
     // skip files
     Preconditions.checkArgument(checkpointedPosition.getOffset() < combinedTask.files().size(),
         String.format("Checkpointed file offset is %d, while CombinedScanTask has %d files",
@@ -99,6 +91,7 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
     for (long i = 0L; i < checkpointedPosition.getOffset(); ++i) {
       tasks.next();
     }
+    updateCurrentIterator();
     // skip records within the file
     for (long i = 0; i < checkpointedPosition.getRecordsAfterOffset(); ++i) {
       if (hasNext()) {
