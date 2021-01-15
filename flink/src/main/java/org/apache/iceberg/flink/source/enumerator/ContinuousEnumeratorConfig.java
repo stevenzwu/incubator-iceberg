@@ -28,7 +28,7 @@ import org.apache.iceberg.relocated.com.google.common.base.MoreObjects;
 /**
  * Settings for continuous split enumeration
  */
-public class ContinuousEnumConfig implements Serializable {
+public class ContinuousEnumeratorConfig implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
@@ -66,7 +66,7 @@ public class ContinuousEnumConfig implements Serializable {
   @Nullable private final Long startSnapshotId;
   @Nullable private final Long startSnapshotTimeMs;
 
-  private ContinuousEnumConfig(Builder builder) {
+  private ContinuousEnumeratorConfig(Builder builder) {
     this.discoveryInterval = builder.discoveryInterval;
     this.startingStrategy = builder.startingStrategy;
     this.startSnapshotId = builder.startSnapshotId;
@@ -133,9 +133,9 @@ public class ContinuousEnumConfig implements Serializable {
       return this;
     }
 
-    public ContinuousEnumConfig build() {
+    public ContinuousEnumeratorConfig build() {
       checkRequired();
-      return new ContinuousEnumConfig(this);
+      return new ContinuousEnumeratorConfig(this);
     }
 
     private void checkRequired() {

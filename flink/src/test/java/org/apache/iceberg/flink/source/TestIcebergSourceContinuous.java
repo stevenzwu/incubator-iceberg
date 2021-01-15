@@ -46,7 +46,7 @@ import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
-import org.apache.iceberg.flink.source.enumerator.ContinuousEnumConfig;
+import org.apache.iceberg.flink.source.enumerator.ContinuousEnumeratorConfig;
 import org.apache.iceberg.flink.source.reader.FlinkBulkFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -114,9 +114,9 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
                     rowType, 128, false, true)
                 )))
             .scanContext(scanContext)
-            .continuousEnumSettings(ContinuousEnumConfig.builder()
+            .continuousEnumSettings(ContinuousEnumeratorConfig.builder()
                 .discoveryInterval(Duration.ofMillis(1000L))
-                .startingStrategy(ContinuousEnumConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+                .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
                 .build())
             .build(),
         WatermarkStrategy.noWatermarks(),

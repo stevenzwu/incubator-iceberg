@@ -45,7 +45,7 @@ class ContinuousSplitPlanner {
 
   public SplitPlanningResult planSplits(
       final Table table,
-      final ContinuousEnumConfig contEnumConfig,
+      final ContinuousEnumeratorConfig contEnumConfig,
       final ScanContext scanContext,
       final Optional<Long> lastEnumeratedSnapshotId) {
 
@@ -74,7 +74,8 @@ class ContinuousSplitPlanner {
       LOG.info("get startSnapshotId {} based on starting strategy {}",
           startSnapshotId, contEnumConfig.startingStrategy());
       final List<IcebergSourceSplit> splits;
-      if (contEnumConfig.startingStrategy() == ContinuousEnumConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL) {
+      if (contEnumConfig.startingStrategy() ==
+          ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL) {
         // do a full table scan first
         splits = FlinkSplitGenerator
             .planIcebergSourceSplits(table, scanContext);
@@ -90,7 +91,7 @@ class ContinuousSplitPlanner {
   @VisibleForTesting
   long getStartSnapshotId(
       final Table table,
-      final ContinuousEnumConfig contEnumConfig) {
+      final ContinuousEnumeratorConfig contEnumConfig) {
     final List<HistoryEntry> historyEntries = table.history();
     final long startSnapshotId;
     switch (contEnumConfig.startingStrategy()) {
