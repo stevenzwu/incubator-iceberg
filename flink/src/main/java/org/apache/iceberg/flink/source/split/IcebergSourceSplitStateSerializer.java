@@ -24,7 +24,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 
-public class IcebergSourceSplitStateSerializer implements SimpleVersionedSerializer<IcebergSourceSplitState> {
+public class IcebergSourceSplitStateSerializer implements SimpleVersionedSerializer<IcebergSourceSplitStatus> {
 
   public static final IcebergSourceSplitStateSerializer INSTANCE = new IcebergSourceSplitStateSerializer();
 
@@ -39,7 +39,7 @@ public class IcebergSourceSplitStateSerializer implements SimpleVersionedSeriali
   }
 
   @Override
-  public byte[] serialize(IcebergSourceSplitState splitState) throws IOException {
+  public byte[] serialize(IcebergSourceSplitStatus splitState) throws IOException {
     if (splitState.serializedFormCache() != null) {
       return splitState.serializedFormCache();
     }
@@ -47,7 +47,7 @@ public class IcebergSourceSplitStateSerializer implements SimpleVersionedSeriali
   }
 
   @Override
-  public IcebergSourceSplitState deserialize(int version, byte[] serialized) throws IOException {
+  public IcebergSourceSplitStatus deserialize(int version, byte[] serialized) throws IOException {
     switch (version) {
       case 1:
         return deserializeV1(serialized);
@@ -56,7 +56,7 @@ public class IcebergSourceSplitStateSerializer implements SimpleVersionedSeriali
     }
   }
 
-  private byte[] serializeV1(IcebergSourceSplitState splitState) throws IOException {
+  private byte[] serializeV1(IcebergSourceSplitStatus splitState) throws IOException {
     final DataOutputSerializer out = SERIALIZER_CACHE.get();
     out.writeUTF(splitState.status().name());
     if (splitState.assignedSubtaskId() == null) {
@@ -71,15 +71,15 @@ public class IcebergSourceSplitStateSerializer implements SimpleVersionedSeriali
     return result;
   }
 
-  private IcebergSourceSplitState deserializeV1(byte[] serialized) throws IOException {
+  private IcebergSourceSplitStatus deserializeV1(byte[] serialized) throws IOException {
     final DataInputDeserializer in = new DataInputDeserializer(serialized);
-    final IcebergSourceSplitState.Status status = IcebergSourceSplitState.Status.valueOf(in.readUTF());
+    final IcebergSourceSplitStatus.Status status = IcebergSourceSplitStatus.Status.valueOf(in.readUTF());
     final boolean hasAssignedSubtaskId = in.readBoolean();
     if (hasAssignedSubtaskId) {
       final int subtaskId = in.readInt();
-      return new IcebergSourceSplitState(status, subtaskId);
+      return new IcebergSourceSplitStatus(status, subtaskId);
     } else {
-      return new IcebergSourceSplitState(status);
+      return new IcebergSourceSplitStatus(status);
     }
   }
 }

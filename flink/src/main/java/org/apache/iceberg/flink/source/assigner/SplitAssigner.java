@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 
 /**
  * Enumerator should call the assigner APIs from the coordinator thread.
@@ -74,7 +74,7 @@ public interface SplitAssigner extends AutoCloseable {
    * Get assigner state for checkpointing.
    * This is a super-set API that works for all currently imagined assigners.
    */
-  Map<IcebergSourceSplit, IcebergSourceSplitState> snapshotState();
+  Map<IcebergSourceSplit, IcebergSourceSplitStatus> snapshotState();
 
   /**
    * Enumerator can get a notification via CompletableFuture

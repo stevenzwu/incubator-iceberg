@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 
 /**
  * This assigner hands out splits without any guarantee in order or locality.
@@ -48,7 +48,7 @@ public class SimpleSplitAssigner implements SplitAssigner {
     this(new ArrayDeque<>());
   }
 
-  public SimpleSplitAssigner(Map<IcebergSourceSplit, IcebergSourceSplitState> state) {
+  public SimpleSplitAssigner(Map<IcebergSourceSplit, IcebergSourceSplitStatus> state) {
     this(new ArrayDeque<>(state.keySet()));
   }
 
@@ -74,13 +74,16 @@ public class SimpleSplitAssigner implements SplitAssigner {
     completeAvailableFuturesIfNeeded();
   }
 
+  /**
+   * Simple assigner only tracks unassigned splits
+   */
   @Override
-  public Map<IcebergSourceSplit, IcebergSourceSplitState> snapshotState() {
+  public Map<IcebergSourceSplit, IcebergSourceSplitStatus> snapshotState() {
     return pendingSplits.stream()
         .collect(Collectors.toMap(
             split -> split,
-            split -> new IcebergSourceSplitState(
-                IcebergSourceSplitState.Status.UNASSIGNED)));
+            split -> new IcebergSourceSplitStatus(
+                IcebergSourceSplitStatus.Status.UNASSIGNED)));
   }
 
   @Override

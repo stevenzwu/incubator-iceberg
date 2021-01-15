@@ -28,7 +28,7 @@ import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStateSerializer;
 
 public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<IcebergEnumState> {
@@ -73,7 +73,7 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
 
     out.writeInt(splitSerializer.getVersion());
     out.writeInt(enumState.pendingSplits().size());
-    for (Map.Entry<IcebergSourceSplit, IcebergSourceSplitState> e : enumState.pendingSplits().entrySet()) {
+    for (Map.Entry<IcebergSourceSplit, IcebergSourceSplitStatus> e : enumState.pendingSplits().entrySet()) {
       final byte[] splitBytes = splitSerializer.serialize(e.getKey());
       out.writeInt(splitBytes.length);
       out.write(splitBytes);
@@ -97,14 +97,14 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
 
     final int splitSerializerVersion = in.readInt();
     final int splitCount = in.readInt();
-    final Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits = new HashMap<>(splitCount);
+    final Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits = new HashMap<>(splitCount);
     for (int i = 0; i < splitCount; ++i) {
       final byte[] splitBytes = new byte[in.readInt()];
       in.read(splitBytes);
       IcebergSourceSplit split = splitSerializer.deserialize(splitSerializerVersion, splitBytes);
       final byte[] splitStateBytes = new byte[in.readInt()];
       in.read(splitStateBytes);
-      IcebergSourceSplitState splitState = splitStateSerializer.deserialize(splitSerializerVersion, splitStateBytes);
+      IcebergSourceSplitStatus splitState = splitStateSerializer.deserialize(splitSerializerVersion, splitStateBytes);
       pendingSplits.put(split, splitState);
     }
     return new IcebergEnumState(lastEnumeratedSnapshotId, pendingSplits);

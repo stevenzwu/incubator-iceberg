@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 
 /**
  * Enumerator state for checkpointing
@@ -31,15 +31,15 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
 public class IcebergEnumState implements Serializable {
 
   private final Optional<Long> lastEnumeratedSnapshotId;
-  private final Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits;
+  private final Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits;
 
-  public IcebergEnumState(Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits) {
+  public IcebergEnumState(Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits) {
     this(Optional.empty(), pendingSplits);
   }
 
   public IcebergEnumState(
       Optional<Long> lastEnumeratedSnapshotId,
-      Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits) {
+      Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits) {
     this.lastEnumeratedSnapshotId = lastEnumeratedSnapshotId;
     this.pendingSplits = pendingSplits;
   }
@@ -48,7 +48,7 @@ public class IcebergEnumState implements Serializable {
     return lastEnumeratedSnapshotId;
   }
 
-  public Map<IcebergSourceSplit, IcebergSourceSplitState> pendingSplits() {
+  public Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits() {
     return pendingSplits;
   }
 }
