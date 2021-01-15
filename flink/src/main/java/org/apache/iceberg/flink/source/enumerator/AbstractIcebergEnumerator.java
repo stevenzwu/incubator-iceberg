@@ -40,7 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 abstract class AbstractIcebergEnumerator implements
-    SplitEnumerator<IcebergSourceSplit, IcebergEnumState> {
+    SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState> {
 
   private static final Logger LOG = LoggerFactory.getLogger(AbstractIcebergEnumerator.class);
 

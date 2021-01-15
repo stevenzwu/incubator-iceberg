@@ -38,7 +38,7 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
   private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
   private final ScanContext scanContext;
   private final SplitAssigner assigner;
-  private final ContinuousEnumConfig contEnumConfig;
+  private final ContinuousEnumeratorConfig contEnumConfig;
   private final Table table;
   private final ContinuousSplitPlanner splitPlanner;
 
@@ -53,8 +53,8 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
       TableLoader tableLoader,
       ScanContext scanContext,
       SplitAssigner assigner,
-      @Nullable IcebergEnumState enumState,
-      ContinuousEnumConfig contEnumConfig) {
+      @Nullable IcebergEnumeratorState enumState,
+      ContinuousEnumeratorConfig contEnumConfig) {
     super(enumContext, assigner);
 
     this.enumContext = enumContext;
@@ -98,8 +98,8 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
   }
 
   @Override
-  public IcebergEnumState snapshotState() throws Exception {
-    return new IcebergEnumState(lastEnumeratedSnapshotId, assigner.snapshotState());
+  public IcebergEnumeratorState snapshotState() throws Exception {
+    return new IcebergEnumeratorState(lastEnumeratedSnapshotId, assigner.snapshotState());
   }
 
   private SplitPlanningResult discoverSplits() {

@@ -24,9 +24,9 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 
-public class IcebergSourceSplitStateSerializer implements SimpleVersionedSerializer<IcebergSourceSplitStatus> {
+public class IcebergSourceSplitStatusSerializer implements SimpleVersionedSerializer<IcebergSourceSplitStatus> {
 
-  public static final IcebergSourceSplitStateSerializer INSTANCE = new IcebergSourceSplitStateSerializer();
+  public static final IcebergSourceSplitStatusSerializer INSTANCE = new IcebergSourceSplitStatusSerializer();
 
   private static final int VERSION = 1;
 

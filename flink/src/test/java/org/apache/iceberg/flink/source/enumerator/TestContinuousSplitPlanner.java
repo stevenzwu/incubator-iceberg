@@ -73,7 +73,7 @@ public class TestContinuousSplitPlanner {
   @Test
   public void testStartSnapshotId() throws Exception {
     final ContinuousSplitPlanner splitPlanner = new ContinuousSplitPlanner();
-    ContinuousEnumConfig contEnumConfig;
+    ContinuousEnumeratorConfig contEnumConfig;
 
     // snapshot1
     final List<Record> batch1 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
@@ -88,54 +88,54 @@ public class TestContinuousSplitPlanner {
     dataAppender.appendToTable(batch3);
     final Snapshot snapshot3 = table.currentSnapshot();
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     Assert.assertEquals(snapshot3.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.LATEST_SNAPSHOT)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.LATEST_SNAPSHOT)
         .build();
     Assert.assertEquals(snapshot3.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.EARLIEST_SNAPSHOT)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.EARLIEST_SNAPSHOT)
         .build();
     Assert.assertEquals(snapshot1.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_ID)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_ID)
         .startSnapshotId(snapshot2.snapshotId())
         .build();
     Assert.assertEquals(snapshot2.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
         .startSnapshotTimeMs(snapshot2.timestampMillis())
         .build();
     Assert.assertEquals(snapshot2.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
         .startSnapshotTimeMs(snapshot2.timestampMillis() + 1L)
         .build();
     Assert.assertEquals(snapshot2.snapshotId(),
         splitPlanner.getStartSnapshotId(table, contEnumConfig));
 
-    contEnumConfig = ContinuousEnumConfig.builder()
+    contEnumConfig = ContinuousEnumeratorConfig.builder()
         .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
+        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
         .startSnapshotTimeMs(snapshot2.timestampMillis() - 1L)
         .build();
     Assert.assertEquals(snapshot1.snapshotId(),

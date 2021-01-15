@@ -28,16 +28,16 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 /**
  * Enumerator state for checkpointing
  */
-public class IcebergEnumState implements Serializable {
+public class IcebergEnumeratorState implements Serializable {
 
   private final Optional<Long> lastEnumeratedSnapshotId;
   private final Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits;
 
-  public IcebergEnumState(Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits) {
+  public IcebergEnumeratorState(Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits) {
     this(Optional.empty(), pendingSplits);
   }
 
-  public IcebergEnumState(
+  public IcebergEnumeratorState(
       Optional<Long> lastEnumeratedSnapshotId,
       Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits) {
     this.lastEnumeratedSnapshotId = lastEnumeratedSnapshotId;

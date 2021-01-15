@@ -28,12 +28,12 @@ import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitStateSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatusSerializer;
 
-public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<IcebergEnumState> {
+public class IcebergEnumeratorStateSerializer implements SimpleVersionedSerializer<IcebergEnumeratorState> {
 
-  public static final IcebergEnumStateSerializer INSTANCE = new IcebergEnumStateSerializer();
+  public static final IcebergEnumeratorStateSerializer INSTANCE = new IcebergEnumeratorStateSerializer();
 
   private static final int VERSION = 1;
 
@@ -41,7 +41,7 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
       ThreadLocal.withInitial(() -> new DataOutputSerializer(1024));
 
   private final IcebergSourceSplitSerializer splitSerializer = IcebergSourceSplitSerializer.INSTANCE;
-  private final IcebergSourceSplitStateSerializer splitStateSerializer = IcebergSourceSplitStateSerializer.INSTANCE;
+  private final IcebergSourceSplitStatusSerializer splitStateSerializer = IcebergSourceSplitStatusSerializer.INSTANCE;
 
   @Override
   public int getVersion() {
@@ -49,12 +49,12 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
   }
 
   @Override
-  public byte[] serialize(IcebergEnumState enumState) throws IOException {
+  public byte[] serialize(IcebergEnumeratorState enumState) throws IOException {
     return serializeV1(enumState);
   }
 
   @Override
-  public IcebergEnumState deserialize(int version, byte[] serialized) throws IOException {
+  public IcebergEnumeratorState deserialize(int version, byte[] serialized) throws IOException {
     switch (version) {
       case 1:
         return deserializeV1(serialized);
@@ -63,7 +63,7 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
     }
   }
 
-  private byte[] serializeV1(IcebergEnumState enumState) throws IOException {
+  private byte[] serializeV1(IcebergEnumeratorState enumState) throws IOException {
     final DataOutputSerializer out = SERIALIZER_CACHE.get();
 
     out.writeBoolean(enumState.lastEnumeratedSnapshotId().isPresent());
@@ -87,7 +87,7 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
     return result;
   }
 
-  private IcebergEnumState deserializeV1(byte[] serialized) throws IOException {
+  private IcebergEnumeratorState deserializeV1(byte[] serialized) throws IOException {
     final DataInputDeserializer in = new DataInputDeserializer(serialized);
 
     Optional<Long> lastEnumeratedSnapshotId = Optional.empty();
@@ -107,6 +107,6 @@ public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<Ice
       IcebergSourceSplitStatus splitState = splitStateSerializer.deserialize(splitSerializerVersion, splitStateBytes);
       pendingSplits.put(split, splitState);
     }
-    return new IcebergEnumState(lastEnumeratedSnapshotId, pendingSplits);
+    return new IcebergEnumeratorState(lastEnumeratedSnapshotId, pendingSplits);
   }
 }
