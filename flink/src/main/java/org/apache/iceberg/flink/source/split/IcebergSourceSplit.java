@@ -93,7 +93,8 @@ public class IcebergSourceSplit extends FileSourceSplit {
       return false;
     }
     IcebergSourceSplit split = (IcebergSourceSplit) o;
-    return Objects.equal(splitId(), split.splitId());
+    return Objects.equal(splitId(), split.splitId()) &&
+        Objects.equal(checkpointedPosition, split.checkpointedPosition());
   }
 
   @Override
