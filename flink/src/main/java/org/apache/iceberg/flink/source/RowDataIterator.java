@@ -20,8 +20,6 @@
 package org.apache.iceberg.flink.source;
 
 import java.util.Map;
-import javax.annotation.Nullable;
-import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.flink.table.data.RowData;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
@@ -58,13 +56,7 @@ public class RowDataIterator extends DataIterator<RowData> {
 
   public RowDataIterator(CombinedScanTask task, FileIO io, EncryptionManager encryption, Schema tableSchema,
                          Schema projectedSchema, String nameMapping, boolean caseSensitive) {
-    this(task, io, encryption, tableSchema, projectedSchema, nameMapping, caseSensitive, null);
-  }
-
-  public RowDataIterator(CombinedScanTask task, FileIO io, EncryptionManager encryption, Schema tableSchema,
-                         Schema projectedSchema, String nameMapping, boolean caseSensitive,
-                         @Nullable CheckpointedPosition checkpointedPosition) {
-    super(task, io, encryption, checkpointedPosition);
+    super(task, io, encryption);
     this.tableSchema = tableSchema;
     this.projectedSchema = projectedSchema;
     this.nameMapping = nameMapping;
