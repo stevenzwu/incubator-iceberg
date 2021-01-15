@@ -47,10 +47,8 @@ public class TestFlinkBulkFormatAdaptor extends BulkFormatTestBase {
     };
   }
 
-  private final FileFormat fileFormat;
-
   public TestFlinkBulkFormatAdaptor(FileFormat fileFormat) {
-    this.fileFormat = fileFormat;
+    super(fileFormat);
   }
 
   @Override
@@ -58,8 +56,4 @@ public class TestFlinkBulkFormatAdaptor extends BulkFormatTestBase {
     return icebergBulkFormatAdaptor;
   }
 
-  @Override
-  protected FileFormat getFileFormat() {
-    return fileFormat;
-  }
 }
