@@ -30,12 +30,9 @@ import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.MutableIcebergSourceSplit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class IcebergSourceReader<T> extends
     SingleThreadMultiplexSourceReaderBase<RecordAndPosition<T>, T, IcebergSourceSplit, MutableIcebergSourceSplit> {
-  private static final Logger LOG = LoggerFactory.getLogger(IcebergSourceReader.class);
 
   public IcebergSourceReader(
       SourceReaderContext context,
@@ -47,16 +44,6 @@ public class IcebergSourceReader<T> extends
         context);
   }
 
-  /**
-   * Reader requests on split during start,
-   * which means that reader can be momentarily idle
-   * while waiting for the new assigned splits.
-   * We need to do more testing to verify
-   * if it is a concern or not in practice.
-   *
-   * If we want to avoid empty backlog of splits,
-   * we can send to request split events.
-   */
   @Override
   public void start() {
     requestSplit(Collections.emptyList());
