@@ -30,7 +30,7 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MockFileScanTask;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitState;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Test;
@@ -121,7 +121,7 @@ public class TestSimpleSplitAssigner {
   }
 
   private void assertSnapshot(SimpleSplitAssigner assigner, int splitCount) {
-    final Map<IcebergSourceSplit, IcebergSourceSplitState> stateBeforeGet = assigner.snapshotState();
+    final Map<IcebergSourceSplit, IcebergSourceSplitStatus> stateBeforeGet = assigner.snapshotState();
     Assert.assertEquals(splitCount, stateBeforeGet.size());
   }
 

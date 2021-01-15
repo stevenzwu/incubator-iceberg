@@ -22,7 +22,7 @@ package org.apache.iceberg.flink.source.split;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 
-public class IcebergSourceSplitState implements Serializable {
+public class IcebergSourceSplitStatus implements Serializable {
 
   public enum Status {
     UNASSIGNED,
@@ -40,11 +40,11 @@ public class IcebergSourceSplitState implements Serializable {
    */
   @Nullable private transient byte[] serializedFormCache;
 
-  public IcebergSourceSplitState(Status status) {
+  public IcebergSourceSplitStatus(Status status) {
     this(status, null);
   }
 
-  public IcebergSourceSplitState(Status status, @Nullable Integer assignedSubtaskId) {
+  public IcebergSourceSplitStatus(Status status, @Nullable Integer assignedSubtaskId) {
     this.status = status;
     this.assignedSubtaskId = assignedSubtaskId;
   }
