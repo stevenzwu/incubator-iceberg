@@ -19,25 +19,16 @@
 
 package org.apache.iceberg.flink.source.assigner;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.iceberg.BaseCombinedScanTask;
-import org.apache.iceberg.CombinedScanTask;
-import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.MockFileScanTask;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
-import org.hamcrest.CoreMatchers;
+import org.apache.iceberg.flink.source.split.SplitHelpers;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class TestSimpleSplitAssigner {
-
-  private static final AtomicLong splitLengthIncrement = new AtomicLong();
 
   @Test
   public void testEmptyInitialization() {
@@ -46,16 +37,16 @@ public class TestSimpleSplitAssigner {
   }
 
   /**
-   * Test a sequence of interactions for static enumerator
+   * Test a sequence of interactions for StaticEnumerator
    */
   @Test
   public void testStaticEnumeratorSequence() {
     final SimpleSplitAssigner assigner = new SimpleSplitAssigner();
-    assigner.onDiscoveredSplits(createSplits(2));
+    assigner.onDiscoveredSplits(SplitHelpers.createMockedSplits(2));
 
     assertGetNext(assigner, GetSplitResult.Status.AVAILABLE);
     assertSnapshot(assigner, 1);
-    assigner.onUnassignedSplits(createSplits(1), 0);
+    assigner.onUnassignedSplits(SplitHelpers.createMockedSplits(1), 0);
     assertSnapshot(assigner, 2);
 
     assertGetNext(assigner, GetSplitResult.Status.AVAILABLE);
@@ -65,17 +56,17 @@ public class TestSimpleSplitAssigner {
   }
 
   /**
-   * Test a sequence of interactions for continuous enumerator
+   * Test a sequence of interactions for ContinuousEnumerator
    */
   @Test
   public void testContinuousEnumeratorSequence() {
     final SimpleSplitAssigner assigner = new SimpleSplitAssigner();
     assertGetNext(assigner, GetSplitResult.Status.UNAVAILABLE);
 
-    assertAvailableFuture(assigner, 1, () -> assigner.onDiscoveredSplits(createSplits(1)));
-    assertAvailableFuture(assigner, 1, () -> assigner.onUnassignedSplits(createSplits(1), 0));
+    assertAvailableFuture(assigner, 1, () -> assigner.onDiscoveredSplits(SplitHelpers.createMockedSplits(1)));
+    assertAvailableFuture(assigner, 1, () -> assigner.onUnassignedSplits(SplitHelpers.createMockedSplits(1), 0));
 
-    assigner.onDiscoveredSplits(createSplits(2));
+    assigner.onDiscoveredSplits(SplitHelpers.createMockedSplits(2));
     assertSnapshot(assigner, 2);
     assertGetNext(assigner, GetSplitResult.Status.AVAILABLE);
     assertGetNext(assigner, GetSplitResult.Status.AVAILABLE);
@@ -91,7 +82,7 @@ public class TestSimpleSplitAssigner {
     // calling isAvailable again should return the same object reference
     // note that thenAccept will return a new future.
     // we want to assert the same instance on the assigner returned future
-    Assert.assertThat(assigner.isAvailable(), CoreMatchers.sameInstance(future));
+    Assert.assertSame(future, assigner.isAvailable());
 
     // now add some splits
     addSplitsRunnable.run();
@@ -123,18 +114,5 @@ public class TestSimpleSplitAssigner {
   private void assertSnapshot(SimpleSplitAssigner assigner, int splitCount) {
     final Map<IcebergSourceSplit, IcebergSourceSplitStatus> stateBeforeGet = assigner.snapshotState();
     Assert.assertEquals(splitCount, stateBeforeGet.size());
-  }
-
-  private List<IcebergSourceSplit> createSplits(int count) {
-    List<IcebergSourceSplit> splits = new ArrayList<>();
-    for (int i = 0; i < count; ++i) {
-      // make sure each task has a different length,
-      // as it is part of the splitId calculation.
-      // This way, we can make sure all generated splits have different splitIds
-      FileScanTask fileScanTask = new MockFileScanTask(1024 + splitLengthIncrement.incrementAndGet());
-      CombinedScanTask combinedScanTask = new BaseCombinedScanTask(fileScanTask);
-      splits.add(IcebergSourceSplit.fromCombinedScanTask(combinedScanTask));
-    }
-    return splits;
   }
 }

@@ -28,8 +28,8 @@ import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitSerializer;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStateSerializer;
+import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 
 public class IcebergEnumStateSerializer implements SimpleVersionedSerializer<IcebergEnumState> {
 

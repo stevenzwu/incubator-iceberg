@@ -20,12 +20,13 @@
 package org.apache.iceberg.flink.source.split;
 
 import java.io.IOException;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.InstantiationUtil;
 
 /**
  * TODO: use Java serialization for now.
- * will need to write our own serializer.
+ * will switch to more stable serializer from issue-1698.
  */
 public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<IcebergSourceSplit> {
 
@@ -40,10 +41,11 @@ public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<I
 
   @Override
   public byte[] serialize(IcebergSourceSplit split) throws IOException {
-    if (split.serializedFormCache() != null) {
-      return split.serializedFormCache();
+    if (split.serializedFormCache() == null) {
+      final byte[] result = serializeV1(split);
+      split.serializedFormCache(result);
     }
-    return serializeV1(split);
+    return split.serializedFormCache();
   }
 
   @Override
@@ -56,13 +58,13 @@ public class IcebergSourceSplitSerializer implements SimpleVersionedSerializer<I
     }
   }
 
-  private byte[] serializeV1(IcebergSourceSplit split) throws IOException {
-    byte[] result = InstantiationUtil.serializeObject(split);
-    split.serializedFormCache(result);
-    return result;
+  @VisibleForTesting
+  byte[] serializeV1(IcebergSourceSplit split) throws IOException {
+    return InstantiationUtil.serializeObject(split);
   }
 
-  private IcebergSourceSplit deserializeV1(byte[] serialized) throws IOException {
+  @VisibleForTesting
+  IcebergSourceSplit deserializeV1(byte[] serialized) throws IOException {
     try {
       return InstantiationUtil.deserializeObject(serialized, getClass().getClassLoader());
     } catch (ClassNotFoundException e) {
