@@ -39,19 +39,12 @@ public class TestRowDataIteratorBulkFormat extends BulkFormatTestBase {
     };
   }
 
-  private final FileFormat fileFormat;
-
   public TestRowDataIteratorBulkFormat(FileFormat fileFormat) {
-    this.fileFormat = fileFormat;
+    super(fileFormat);
   }
 
   @Override
   protected BulkFormat<RowData, IcebergSourceSplit> getBulkFormat() {
     return new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType);
-  }
-
-  @Override
-  protected FileFormat getFileFormat() {
-    return fileFormat;
   }
 }

@@ -32,6 +32,7 @@ import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.GenericAppenderHelper;
@@ -47,9 +48,9 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.MutableIcebergSourceSplit;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
-import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -58,49 +59,53 @@ public class TestIcebergSourceSplitReader {
   @ClassRule
   public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
-  private final FileFormat fileFormat = FileFormat.PARQUET;
-  private final ScanContext scanContext = new ScanContext()
+  private static final ScanContext scanContext = new ScanContext()
       .project(TestFixtures.SCHEMA);
+  private static final FileFormat fileFormat = FileFormat.PARQUET;
 
-  private String warehouse;
-  private HadoopCatalog catalog;
-  private Table table;
-  private GenericAppenderHelper dataAppender;
+  private static String warehouse;
+  private static HadoopCatalog catalog;
+  private static Table table;
+  private static List<List<Record>> recordBatchList;
+  private static List<DataFile> dataFileList;
+  private static IcebergSourceSplit icebergSplit;
 
-  @Before
-  public void before() throws IOException {
-    File warehouseFile = TEMPORARY_FOLDER.newFolder();
+  @BeforeClass
+  public static void beforeClass() throws IOException {
+    final File warehouseFile = TEMPORARY_FOLDER.newFolder();
     Assert.assertTrue(warehouseFile.delete());
-    // before variables
     warehouse = "file:" + warehouseFile;
     org.apache.hadoop.conf.Configuration hadoopConf = new org.apache.hadoop.conf.Configuration();
     catalog = new HadoopCatalog(hadoopConf, warehouse);
     table = catalog.createTable(TestFixtures.TABLE_IDENTIFIER, TestFixtures.SCHEMA);
-    dataAppender = new GenericAppenderHelper(table, fileFormat, TEMPORARY_FOLDER);
+
+    final GenericAppenderHelper dataAppender = new GenericAppenderHelper(
+        table, fileFormat, TEMPORARY_FOLDER);
+    recordBatchList = new ArrayList<>(3);
+    dataFileList = new ArrayList<>(2);
+    for (int i = 0; i < 3; ++i) {
+      List<Record> records = RandomGenericData.generate(TestFixtures.SCHEMA, 2, i);
+      recordBatchList.add(records);
+      DataFile dataFile = dataAppender.writeFile(null, records);
+      dataFileList.add(dataFile);
+      dataAppender.appendToTable(dataFile);
+    }
+
+    final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
+    Assert.assertEquals(1, splits.size());
+    Assert.assertEquals(3, splits.get(0).task().files().size());
+    icebergSplit = BulkFormatTestBase.sortFilesAsAppendOrder(splits.get(0), dataFileList);
   }
 
-  @After
-  public void after() throws IOException {
+  @AfterClass
+  public static void afterClass() throws IOException {
+    catalog.dropTable(TestFixtures.TABLE_IDENTIFIER);
     catalog.close();
   }
 
   @Test
   public void testFullScan() throws Exception {
-    // snapshot1
-    final List<Record> recordBatch1 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch1);
-    // snapshot2
-    final List<Record> recordBatch2 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch2);
-    // snapshot3
-    final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch3);
-
-    final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
-    Assert.assertEquals(1, splits.size());
-    Assert.assertEquals(3, splits.get(0).task().files().size());
-    final IcebergSourceSplit split = splits.get(0);
-
+    final IcebergSourceSplit split = icebergSplit;
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
@@ -108,45 +113,31 @@ public class TestIcebergSourceSplitReader {
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
     reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch0
+        = reader.fetch();
+    final List<Row> rowBatch0 = readRows(readBatch0, split.splitId(), 0L, 0L);
+    TestHelpers.assertRecords(rowBatch0, recordBatchList.get(0), TestFixtures.SCHEMA);
+
     final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1
         = reader.fetch();
-    final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 0L, 0L);
-    TestHelpers.assertRecords(rowBatch1, recordBatch1, TestFixtures.SCHEMA);
+    final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 1L, 0L);
+    TestHelpers.assertRecords(rowBatch1, recordBatchList.get(1), TestFixtures.SCHEMA);
 
     final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
         = reader.fetch();
-    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
-    TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
-
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetch();
-    final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
-    TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
+    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 2L, 0L);
+    TestHelpers.assertRecords(rowBatch2, recordBatchList.get(2), TestFixtures.SCHEMA);
 
     final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
         = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
+    Assert.assertEquals(null, finishedBatch.nextSplit());
   }
 
   @Test
   public void testResumeFromEndOfFirstBatch() throws Exception {
-    // snapshot1
-    final List<Record> recordBatch1 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch1);
-    // snapshot2
-    final List<Record> recordBatch2 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch2);
-    // snapshot3
-    final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch3);
-
-    final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
-    Assert.assertEquals(1, splits.size());
-    Assert.assertEquals(3, splits.get(0).task().files().size());
-
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(splits.get(0).task(), 0L, 2L));
-
+        new MutableIcebergSourceSplit(icebergSplit.task(), 0L, 2L));
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
@@ -154,40 +145,23 @@ public class TestIcebergSourceSplitReader {
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
     reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetch();
-    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
-    TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1 = reader.fetch();
+    final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 1L, 0L);
+    TestHelpers.assertRecords(rowBatch1, recordBatchList.get(1), TestFixtures.SCHEMA);
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetch();
-    final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
-    TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2 = reader.fetch();
+    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 2L, 0L);
+    TestHelpers.assertRecords(rowBatch2, recordBatchList.get(2), TestFixtures.SCHEMA);
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
-        = reader.fetch();
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
+    Assert.assertEquals(null, finishedBatch.nextSplit());
   }
 
   @Test
   public void testResumeFromStartOfSecondBatch() throws Exception {
-    // snapshot1
-    final List<Record> recordBatch1 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch1);
-    // snapshot2
-    final List<Record> recordBatch2 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch2);
-    // snapshot3
-    final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch3);
-
-    final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
-    Assert.assertEquals(1, splits.size());
-    Assert.assertEquals(3, splits.get(0).task().files().size());
-
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(splits.get(0).task(), 1L, 0L));
-
+        new MutableIcebergSourceSplit(icebergSplit.task(), 1L, 0L));
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
     BulkFormat<RowData, IcebergSourceSplit> bulkFormat = new RowDataIteratorBulkFormat(
@@ -195,39 +169,24 @@ public class TestIcebergSourceSplitReader {
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
     reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetch();
-    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 0L);
-    TestHelpers.assertRecords(rowBatch2, recordBatch2, TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1 = reader.fetch();
+    final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 1L, 0L);
+    TestHelpers.assertRecords(rowBatch1, recordBatchList.get(1), TestFixtures.SCHEMA);
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetch();
-    final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
-    TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2 = reader.fetch();
+    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 2L, 0L);
+    TestHelpers.assertRecords(rowBatch2, recordBatchList.get(2), TestFixtures.SCHEMA);
 
     final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
         = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
+    Assert.assertEquals(null, finishedBatch.nextSplit());
   }
 
   @Test
   public void testResumeFromMiddleOfSecondBatch() throws Exception {
-    // snapshot1
-    final List<Record> recordBatch1 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch1);
-    // snapshot2
-    final List<Record> recordBatch2 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch2);
-    // snapshot3
-    final List<Record> recordBatch3 = RandomGenericData.generate(TestFixtures.SCHEMA, 2, 0L);
-    dataAppender.appendToTable(recordBatch3);
-
-    final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
-    Assert.assertEquals(1, splits.size());
-    Assert.assertEquals(3, splits.get(0).task().files().size());
-
     final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(splits.get(0).task(), 1L, 1L));
+        new MutableIcebergSourceSplit(icebergSplit.task(), 1L, 1L));
 
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(table.schema());
@@ -236,19 +195,18 @@ public class TestIcebergSourceSplitReader {
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config, bulkFormat);
     reader.handleSplitsChanges(new SplitsAddition(Arrays.asList(split)));
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2
-        = reader.fetch();
-    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 1L, 1L);
-    TestHelpers.assertRecords(rowBatch2, recordBatch2.subList(1, 2), TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch1 = reader.fetch();
+    final List<Row> rowBatch1 = readRows(readBatch1, split.splitId(), 1L, 1L);
+    TestHelpers.assertRecords(rowBatch1, recordBatchList.get(1).subList(1, 2), TestFixtures.SCHEMA);
 
-    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch3
-        = reader.fetch();
-    final List<Row> rowBatch3 = readRows(readBatch3, split.splitId(), 2L, 0L);
-    TestHelpers.assertRecords(rowBatch3, recordBatch3, TestFixtures.SCHEMA);
+    final RecordsWithSplitIds<RecordAndPosition<RowData>> readBatch2 = reader.fetch();
+    final List<Row> rowBatch2 = readRows(readBatch2, split.splitId(), 2L, 0L);
+    TestHelpers.assertRecords(rowBatch2, recordBatchList.get(2), TestFixtures.SCHEMA);
 
     final RecordsWithSplitIds<RecordAndPosition<RowData>> finishedBatch
         = reader.fetch();
     Assert.assertEquals(Sets.newHashSet(split.splitId()), finishedBatch.finishedSplits());
+    Assert.assertEquals(null, finishedBatch.nextSplit());
   }
 
   private List<Row> readRows(
