@@ -112,7 +112,9 @@ public class IcebergSourceSplit extends FileSourceSplit {
   private String toString(Collection<FileScanTask> files) {
     return Iterables.toString(files.stream().map(fileScanTask ->
         MoreObjects.toStringHelper(fileScanTask)
-            .add("file", fileScanTask.file().path().toString())
+            .add("file", fileScanTask.file() != null ?
+                fileScanTask.file().path().toString() :
+                "NoFile")
             .add("start", fileScanTask.start())
             .add("length", fileScanTask.length())
             .toString()).collect(Collectors.toList()));
