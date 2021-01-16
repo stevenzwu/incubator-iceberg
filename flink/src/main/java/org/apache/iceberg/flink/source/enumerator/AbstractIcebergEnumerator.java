@@ -37,6 +37,10 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * TODO: publish enumerator monitor metrics like number of pending metrics
+ * after FLINK-21000 is resolved
+ */
 abstract class AbstractIcebergEnumerator implements
     SplitEnumerator<IcebergSourceSplit, IcebergEnumeratorState> {
 
