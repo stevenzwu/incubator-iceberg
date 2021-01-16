@@ -93,4 +93,9 @@ public interface SplitAssigner extends AutoCloseable {
    * using {@link SplitEnumeratorContext#runInCoordinatorThread(Runnable)}.
    */
   CompletableFuture<Void> isAvailable();
+
+  /**
+   * @return assigner stats for monitoring purpose
+   */
+  SplitAssignerStats stats();
 }

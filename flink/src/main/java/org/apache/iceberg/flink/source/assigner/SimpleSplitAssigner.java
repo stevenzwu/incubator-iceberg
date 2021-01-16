@@ -94,6 +94,12 @@ public class SimpleSplitAssigner implements SplitAssigner {
     return availableFuture;
   }
 
+  @Override
+  public SplitAssignerStats stats() {
+    return new SplitAssignerStats(pendingSplits.size());
+  }
+
+
   private synchronized void completeAvailableFuturesIfNeeded() {
     if (availableFuture != null && !pendingSplits.isEmpty()) {
       availableFuture.complete(null);
