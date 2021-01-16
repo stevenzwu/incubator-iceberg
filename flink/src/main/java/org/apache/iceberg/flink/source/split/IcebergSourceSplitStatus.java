@@ -21,6 +21,7 @@ package org.apache.iceberg.flink.source.split;
 
 import java.io.Serializable;
 import javax.annotation.Nullable;
+import org.apache.iceberg.relocated.com.google.common.base.Objects;
 
 public class IcebergSourceSplitStatus implements Serializable {
 
@@ -63,5 +64,25 @@ public class IcebergSourceSplitStatus implements Serializable {
 
   public void serializedFormCache(byte[] cachedBytes) {
     this.serializedFormCache = cachedBytes;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(
+        status,
+        assignedSubtaskId);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    IcebergSourceSplitStatus other = (IcebergSourceSplitStatus) o;
+    return Objects.equal(status, other.status()) &&
+        Objects.equal(assignedSubtaskId, other.assignedSubtaskId());
   }
 }
