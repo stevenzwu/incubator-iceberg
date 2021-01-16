@@ -72,14 +72,16 @@ public class IcebergEnumeratorStateSerializer implements SimpleVersionedSerializ
     }
 
     out.writeInt(splitSerializer.getVersion());
+    out.writeInt(splitStateSerializer.getVersion());
+
     out.writeInt(enumState.pendingSplits().size());
     for (Map.Entry<IcebergSourceSplit, IcebergSourceSplitStatus> e : enumState.pendingSplits().entrySet()) {
       final byte[] splitBytes = splitSerializer.serialize(e.getKey());
       out.writeInt(splitBytes.length);
       out.write(splitBytes);
-      final byte[] splitStateBytes = splitStateSerializer.serialize(e.getValue());
-      out.writeInt(splitStateBytes.length);
-      out.write(splitBytes);
+      final byte[] splitStatusBytes = splitStateSerializer.serialize(e.getValue());
+      out.writeInt(splitStatusBytes.length);
+      out.write(splitStatusBytes);
     }
 
     final byte[] result = out.getCopyOfBuffer();
@@ -96,16 +98,19 @@ public class IcebergEnumeratorStateSerializer implements SimpleVersionedSerializ
     }
 
     final int splitSerializerVersion = in.readInt();
+    final int splitStatusSerializerVersion = in.readInt();
+
     final int splitCount = in.readInt();
     final Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits = new HashMap<>(splitCount);
     for (int i = 0; i < splitCount; ++i) {
       final byte[] splitBytes = new byte[in.readInt()];
       in.read(splitBytes);
       IcebergSourceSplit split = splitSerializer.deserialize(splitSerializerVersion, splitBytes);
-      final byte[] splitStateBytes = new byte[in.readInt()];
-      in.read(splitStateBytes);
-      IcebergSourceSplitStatus splitState = splitStateSerializer.deserialize(splitSerializerVersion, splitStateBytes);
-      pendingSplits.put(split, splitState);
+      final byte[] splitStatusBytes = new byte[in.readInt()];
+      in.read(splitStatusBytes);
+      IcebergSourceSplitStatus splitStatus = splitStateSerializer
+          .deserialize(splitStatusSerializerVersion, splitStatusBytes);
+      pendingSplits.put(split, splitStatus);
     }
     return new IcebergEnumeratorState(lastEnumeratedSnapshotId, pendingSplits);
   }

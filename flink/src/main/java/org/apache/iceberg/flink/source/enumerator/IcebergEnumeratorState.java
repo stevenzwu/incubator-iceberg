@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
+import org.apache.iceberg.relocated.com.google.common.base.Objects;
 
 /**
  * Enumerator state for checkpointing
@@ -50,5 +51,25 @@ public class IcebergEnumeratorState implements Serializable {
 
   public Map<IcebergSourceSplit, IcebergSourceSplitStatus> pendingSplits() {
     return pendingSplits;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(
+        lastEnumeratedSnapshotId,
+        pendingSplits);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    IcebergEnumeratorState other = (IcebergEnumeratorState) o;
+    return Objects.equal(lastEnumeratedSnapshotId, other.lastEnumeratedSnapshotId()) &&
+        Objects.equal(pendingSplits, other.pendingSplits());
   }
 }

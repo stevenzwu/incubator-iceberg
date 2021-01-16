@@ -39,11 +39,11 @@ public class IcebergSourceSplitStatusSerializer implements SimpleVersionedSerial
   }
 
   @Override
-  public byte[] serialize(IcebergSourceSplitStatus splitState) throws IOException {
-    if (splitState.serializedFormCache() != null) {
-      return splitState.serializedFormCache();
+  public byte[] serialize(IcebergSourceSplitStatus splitStatus) throws IOException {
+    if (splitStatus.serializedFormCache() != null) {
+      return splitStatus.serializedFormCache();
     }
-    return serializeV1(splitState);
+    return serializeV1(splitStatus);
   }
 
   @Override
