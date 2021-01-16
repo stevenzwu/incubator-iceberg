@@ -23,15 +23,11 @@ import java.util.Optional;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * One-time split enumeration at the beginning
+ * One-time split enumeration at the start-up
  */
 public class StaticIcebergEnumerator extends AbstractIcebergEnumerator {
-
-  private static final Logger LOG = LoggerFactory.getLogger(StaticIcebergEnumerator.class);
 
   private final SplitAssigner assigner;
 
@@ -48,7 +44,7 @@ public class StaticIcebergEnumerator extends AbstractIcebergEnumerator {
   }
 
   @Override
-  public IcebergEnumeratorState snapshotState() throws Exception {
+  public IcebergEnumeratorState snapshotState() {
     return new IcebergEnumeratorState(Optional.empty(), assigner.snapshotState());
   }
 }

@@ -56,7 +56,8 @@ public class ContinuousEnumeratorConfig implements Serializable {
     SPECIFIC_START_SNAPSHOT_ID,
 
     /**
-     * Start incremental mode from a specific startTimestamp
+     * Start incremental mode from a specific startTimestamp.
+     * Starting snapshot has timestamp lower than or equal to the specified timestamp.
      */
     SPECIFIC_START_SNAPSHOT_TIMESTAMP
   }

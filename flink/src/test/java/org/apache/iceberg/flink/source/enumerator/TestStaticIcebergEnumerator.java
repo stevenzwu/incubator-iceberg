@@ -19,25 +19,6 @@
 
 package org.apache.iceberg.flink.source.enumerator;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
+public class TestStaticIcebergEnumerator {
 
-class TestContinuousSplitPlanner implements ContinuousSplitPlanner {
-
-  private final ArrayDeque<IcebergSourceSplit> splits = new ArrayDeque<>();
-
-  @Override
-  public synchronized SplitPlanningResult planSplits(Optional<Long> lastEnumeratedSnapshotId) {
-    final long snapshotId = lastEnumeratedSnapshotId.isPresent() ?
-        lastEnumeratedSnapshotId.get() + 1 : 1L;
-    SplitPlanningResult result = new SplitPlanningResult(new ArrayList<>(splits), snapshotId);
-    return result;
-  }
-
-  public synchronized void addSplits(List<IcebergSourceSplit> newSplits) {
-    splits.addAll(newSplits);
-  }
 }

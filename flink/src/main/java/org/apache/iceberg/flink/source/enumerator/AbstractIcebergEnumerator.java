@@ -30,8 +30,6 @@ import javax.annotation.Nullable;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
 import org.apache.iceberg.flink.source.assigner.GetSplitResult;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
@@ -99,16 +97,7 @@ abstract class AbstractIcebergEnumerator implements
 
   @Override
   public void addReader(int subtaskId) {
-    LOG.info("Added reader {}", subtaskId);
-  }
-
-  protected Table loadTable(TableLoader tableLoader) {
-    tableLoader.open();
-    try (TableLoader loader = tableLoader) {
-      return loader.loadTable();
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to close table loader", e);
-    }
+    LOG.info("Added reader: {}", subtaskId);
   }
 
   private void assignSplits() {
