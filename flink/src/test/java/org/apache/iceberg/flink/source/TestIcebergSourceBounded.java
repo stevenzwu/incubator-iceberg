@@ -109,11 +109,10 @@ public class TestIcebergSourceBounded extends TestFlinkScan {
     final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
 
     final DataStream<Row> stream = env.fromSource(
-        IcebergSource.builder()
+        IcebergSource.<RowData>builder()
             .tableLoader(tableLoader())
             .assignerFactory(new SimpleSplitAssignerFactory())
             .bulkFormat(new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType))
-            .config(config)
             .scanContext(scanContext)
         .build(),
         WatermarkStrategy.noWatermarks(),

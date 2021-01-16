@@ -79,7 +79,7 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
       final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
       env.setParallelism(1);
       final DataStream<RowData> stream = env.fromSource(
-          IcebergSource.builder()
+          IcebergSource.<RowData>builder()
               .tableLoader(tableLoader)
               .assignerFactory(new SimpleSplitAssignerFactory())
               .bulkFormat(new RowDataIteratorBulkFormat(TableInfo.fromTable(table), scanContext, rowType))
