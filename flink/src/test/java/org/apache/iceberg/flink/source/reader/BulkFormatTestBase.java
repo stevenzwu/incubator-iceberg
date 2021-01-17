@@ -126,16 +126,17 @@ public abstract class BulkFormatTestBase {
   public static IcebergSourceSplit sortFilesAsAppendOrder(IcebergSourceSplit split, List<DataFile> dataFiles) {
     Collection<FileScanTask> files = split.task().files();
     Assert.assertEquals(files.size(), dataFiles.size());
-    FileScanTask[] rearrangedFiles = new FileScanTask[files.size()];
+    FileScanTask[] sortedFileArray = new FileScanTask[files.size()];
     for (FileScanTask fileScanTask : files) {
       for (int i = 0; i < dataFiles.size(); ++i) {
         if (fileScanTask.file().path().toString().equals(dataFiles.get(i).path().toString())) {
-          rearrangedFiles[i] = fileScanTask;
+          sortedFileArray[i] = fileScanTask;
         }
       }
     }
-    Assert.assertThat(Lists.newArrayList(rearrangedFiles), CoreMatchers.everyItem(CoreMatchers.notNullValue()));
-    CombinedScanTask rearrangedCombinedTask = new BaseCombinedScanTask(rearrangedFiles);
+    List<FileScanTask> sortedFileList = Lists.newArrayList(sortedFileArray);
+    Assert.assertThat(sortedFileList, CoreMatchers.everyItem(CoreMatchers.notNullValue(FileScanTask.class)));
+    CombinedScanTask rearrangedCombinedTask = new BaseCombinedScanTask(sortedFileList);
     return IcebergSourceSplit.fromCombinedScanTask(rearrangedCombinedTask);
   }
 

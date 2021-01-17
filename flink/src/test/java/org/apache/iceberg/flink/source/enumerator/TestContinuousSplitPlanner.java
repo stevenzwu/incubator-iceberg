@@ -33,7 +33,8 @@ class TestContinuousSplitPlanner implements ContinuousSplitPlanner {
   public synchronized SplitPlanningResult planSplits(Optional<Long> lastEnumeratedSnapshotId) {
     final long snapshotId = lastEnumeratedSnapshotId.isPresent() ?
         lastEnumeratedSnapshotId.get() + 1 : 1L;
-    SplitPlanningResult result = new SplitPlanningResult(new ArrayList<>(splits), snapshotId);
+    SplitPlanningResult result = new SplitPlanningResult(
+        new ArrayList<>(splits), snapshotId, snapshotId);
     return result;
   }
 

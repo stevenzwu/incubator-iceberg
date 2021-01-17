@@ -31,9 +31,9 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContinuousIcebergEnumerator.class);
 
-  private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
+  private final SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext;
   private final SplitAssigner assigner;
-  private final ContinuousEnumeratorConfig contEnumConfig;
+  private final IcebergEnumeratorConfig enumeratorConfig;
   private final ContinuousSplitPlanner splitPlanner;
 
   /**
@@ -43,16 +43,16 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
   private volatile Optional<Long> lastEnumeratedSnapshotId;
 
   public ContinuousIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext,
+      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext,
       SplitAssigner assigner,
       @Nullable IcebergEnumeratorState enumState,
-      ContinuousEnumeratorConfig contEnumConfig,
+      IcebergEnumeratorConfig enumeratorConfig,
       ContinuousSplitPlanner splitPlanner) {
-    super(enumContext, assigner);
+    super(enumeratorContext, assigner, enumeratorConfig);
 
-    this.enumContext = enumContext;
+    this.enumeratorContext = enumeratorContext;
     this.assigner = assigner;
-    this.contEnumConfig = contEnumConfig;
+    this.enumeratorConfig = enumeratorConfig;
     this.splitPlanner = splitPlanner;
 
     if (enumState != null) {
@@ -64,11 +64,11 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
 
   @Override
   public void start() {
-    enumContext.callAsync(
+    enumeratorContext.callAsync(
         this::discoverSplits,
         this::processDiscoveredSplits,
         0L,
-        contEnumConfig.discoveryInterval().toMillis());
+        enumeratorConfig.splitDiscoveryInterval().toMillis());
   }
 
   @Override
@@ -87,6 +87,8 @@ public class ContinuousIcebergEnumerator extends AbstractIcebergEnumerator {
 
   private void processDiscoveredSplits(SplitPlanningResult result, Throwable error) {
     if (error == null) {
+      LOG.info("Enumerated {} splits from table snapshot: id = {}, timestamp = {}",
+          result.splits().size(), result.lastEnumeratedSnapshotId(), result.lastEnumeratedSnapshotTimestampMs());
       if (!result.splits().isEmpty()) {
         assigner.onDiscoveredSplits(result.splits());
       }

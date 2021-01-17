@@ -41,9 +41,9 @@ public class TestContinuousIcebergEnumerator {
     final TestContinuousSplitPlanner splitPlanner = new TestContinuousSplitPlanner();
     final TestingSplitEnumeratorContext<IcebergSourceSplit> context =
         new TestingSplitEnumeratorContext<>(4);
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     final ContinuousIcebergEnumerator enumerator = createEnumerator(context, config, splitPlanner);
 
@@ -66,9 +66,9 @@ public class TestContinuousIcebergEnumerator {
     final TestContinuousSplitPlanner splitPlanner = new TestContinuousSplitPlanner();
     final TestingSplitEnumeratorContext<IcebergSourceSplit> context =
         new TestingSplitEnumeratorContext<>(4);
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     final ContinuousIcebergEnumerator enumerator = createEnumerator(context, config, splitPlanner);
 
@@ -92,9 +92,9 @@ public class TestContinuousIcebergEnumerator {
     final TestContinuousSplitPlanner splitPlanner = new TestContinuousSplitPlanner();
     final TestingSplitEnumeratorContext<IcebergSourceSplit> context =
         new TestingSplitEnumeratorContext<>(4);
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     final ContinuousIcebergEnumerator enumerator = createEnumerator(context, config, splitPlanner);
 
@@ -127,7 +127,7 @@ public class TestContinuousIcebergEnumerator {
 
   private static ContinuousIcebergEnumerator createEnumerator(
       final SplitEnumeratorContext<IcebergSourceSplit> context,
-      final ContinuousEnumeratorConfig config,
+      final IcebergEnumeratorConfig config,
       final ContinuousSplitPlanner splitPlanner) {
 
     final ContinuousIcebergEnumerator enumerator =

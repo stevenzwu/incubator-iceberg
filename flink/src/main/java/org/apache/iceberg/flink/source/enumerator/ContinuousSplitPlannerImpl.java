@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
@@ -45,10 +46,10 @@ public class ContinuousSplitPlannerImpl implements ContinuousSplitPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(ContinuousSplitPlannerImpl.class);
 
   private final Table table;
-  private final ContinuousEnumeratorConfig config;
+  private final IcebergEnumeratorConfig config;
   private final ScanContext scanContext;
 
-  public ContinuousSplitPlannerImpl(Table table, ContinuousEnumeratorConfig config, ScanContext scanContext) {
+  public ContinuousSplitPlannerImpl(Table table, IcebergEnumeratorConfig config, ScanContext scanContext) {
     this.table = table;
     this.config = config;
     this.scanContext = scanContext;
@@ -72,85 +73,93 @@ public class ContinuousSplitPlannerImpl implements ContinuousSplitPlanner {
     table.refresh();
     if (lastEnumeratedSnapshotId.isPresent()) {
       // incremental discovery mode
-      final long endSnapshotId = table.currentSnapshot().snapshotId();
+      final Snapshot endSnapshot = table.currentSnapshot();
       final long startSnapshotId = lastEnumeratedSnapshotId.get();
       final List<IcebergSourceSplit> splits;
-      if (endSnapshotId == lastEnumeratedSnapshotId.get()) {
+      if (endSnapshot.snapshotId() == lastEnumeratedSnapshotId.get()) {
         LOG.info("Current table snapshot is already enumerated: {}",
              lastEnumeratedSnapshotId.get());
         splits = Collections.emptyList();
       } else {
         final ScanContext incrementalScan = scanContext
-            .copyWithAppendsBetween(startSnapshotId, endSnapshotId);
+            .copyWithAppendsBetween(startSnapshotId, endSnapshot.snapshotId());
         splits = FlinkSplitGenerator.planIcebergSourceSplits(table, incrementalScan);
         LOG.info("Discovered {} splits from increment scan: startSnapshotId = {}, endSnapshotId = {}",
-            splits.size(), lastEnumeratedSnapshotId.get(), endSnapshotId);
+            splits.size(), lastEnumeratedSnapshotId.get(), endSnapshot.snapshotId());
       }
-      return new SplitPlanningResult(splits, endSnapshotId);
+      return new SplitPlanningResult(splits, endSnapshot.snapshotId(), endSnapshot.timestampMillis());
     } else {
       // first time
-      final long startSnapshotId = getStartSnapshotId(table, config);
+      final HistoryEntry startSnapshotEntry = getStartSnapshot(table, config);
       LOG.info("get startSnapshotId {} based on starting strategy {}",
-          startSnapshotId, config.startingStrategy());
+          startSnapshotEntry.snapshotId(), config.startingStrategy());
       final List<IcebergSourceSplit> splits;
       if (config.startingStrategy() ==
-          ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL) {
+          IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL) {
         // do a full table scan first
         splits = FlinkSplitGenerator
             .planIcebergSourceSplits(table, scanContext);
         LOG.info("Discovered {} splits from initial full table scan with snapshotId {}",
-            splits.size(), startSnapshotId);
+            splits.size(), startSnapshotEntry);
       } else {
         splits = Collections.emptyList();
       }
-      return new SplitPlanningResult(splits, startSnapshotId);
+      return new SplitPlanningResult(splits, startSnapshotEntry.snapshotId(), startSnapshotEntry.timestampMillis());
     }
   }
 
   @VisibleForTesting
-  static long getStartSnapshotId(
+  static HistoryEntry getStartSnapshot(
       final Table table,
-      final ContinuousEnumeratorConfig contEnumConfig) {
+      final IcebergEnumeratorConfig enumeratorConfig) {
     final List<HistoryEntry> historyEntries = table.history();
-    final long startSnapshotId;
-    switch (contEnumConfig.startingStrategy()) {
+    final HistoryEntry startEntry;
+    switch (enumeratorConfig.startingStrategy()) {
       case TABLE_SCAN_THEN_INCREMENTAL:
       case LATEST_SNAPSHOT:
-        startSnapshotId = historyEntries.get(historyEntries.size() - 1).snapshotId();
+        startEntry = historyEntries.get(historyEntries.size() - 1);
         break;
       case EARLIEST_SNAPSHOT:
-        startSnapshotId = historyEntries.get(0).snapshotId();
+        startEntry = historyEntries.get(0);
         break;
       case SPECIFIC_START_SNAPSHOT_ID:
-        startSnapshotId = contEnumConfig.startSnapshotId();
+        Optional<HistoryEntry> matchedEntry = historyEntries.stream()
+            .filter(entry -> entry.snapshotId() == enumeratorConfig.startSnapshotId())
+            .findFirst();
+        if (matchedEntry.isPresent()) {
+          startEntry = matchedEntry.get();
+        } else {
+          throw new IllegalArgumentException(
+              "Snapshot id not found in history: {}" + enumeratorConfig.startSnapshotId());
+        }
         break;
       case SPECIFIC_START_SNAPSHOT_TIMESTAMP:
-        Optional<Long> opt = findSnapshotIdByTimestamp(
-            contEnumConfig.startSnapshotTimeMs(), table.history());
+        Optional<HistoryEntry> opt = findSnapshotHistoryEntryByTimestamp(
+            enumeratorConfig.startSnapshotTimeMs(), historyEntries);
         if (opt.isPresent()) {
-          startSnapshotId = opt.get();
+          startEntry = opt.get();
         } else {
           throw new IllegalArgumentException(
               "Failed to find a start snapshot in history using timestamp: " +
-                  contEnumConfig.startSnapshotTimeMs());
+                  enumeratorConfig.startSnapshotTimeMs());
         }
         break;
       default:
         throw new IllegalArgumentException("Unknown starting strategy: " +
-            contEnumConfig.startingStrategy());
+            enumeratorConfig.startingStrategy());
     }
-    return startSnapshotId;
+    return startEntry;
   }
 
   @VisibleForTesting
-  static Optional<Long> findSnapshotIdByTimestamp(long timestamp, List<HistoryEntry> historyEntries) {
-    Long lastSnapshotId = null;
+  static Optional<HistoryEntry> findSnapshotHistoryEntryByTimestamp(long timestamp, List<HistoryEntry> historyEntries) {
+    HistoryEntry matchedEntry = null;
     for (HistoryEntry logEntry : historyEntries) {
       if (logEntry.timestampMillis() <= timestamp) {
-        lastSnapshotId = logEntry.snapshotId();
+        matchedEntry = logEntry;
       }
     }
-    return Optional.ofNullable(lastSnapshotId);
+    return Optional.ofNullable(matchedEntry);
   }
 
 }

@@ -32,7 +32,7 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 /**
  * This assigner hands out splits without any guarantee in order or locality.
  *
- * Since all methods are executed by the source coordinator thread,
+ * Since all methods are called in the source coordinator thread by enumerator,
  * there is no need for locking.
  */
 public class SimpleSplitAssigner implements SplitAssigner {
