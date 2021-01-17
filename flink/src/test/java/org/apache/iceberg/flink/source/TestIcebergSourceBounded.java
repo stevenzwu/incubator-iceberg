@@ -64,34 +64,38 @@ public class TestIcebergSourceBounded extends TestFlinkScan {
     }
     TableSchema flinkSchema = builder.build();
     Schema projectedSchema = FlinkSchemaUtil.convert(icebergTableSchema, flinkSchema);
-    ScanContext scanContext = new ScanContext()
-        .project(projectedSchema);
+    ScanContext scanContext = ScanContext.builder()
+        .project(projectedSchema)
+        .build();
     return run(scanContext);
   }
 
   @Override
   protected List<Row> runWithFilter(Expression filter, String sqlFilter) throws Exception {
     Schema tableSchema = catalog.loadTable(tableIdentifier).schema();
-    ScanContext scanContext = new ScanContext()
+    ScanContext scanContext = ScanContext.builder()
         .project(tableSchema)
-        .filterRows(Arrays.asList(filter));
+        .filters(Arrays.asList(filter))
+        .build();
     return run(scanContext);
   }
 
   @Override
   protected List<Row> runWithOptions(Map<String, String> options) throws Exception {
     Schema tableSchema = catalog.loadTable(tableIdentifier).schema();
-    ScanContext scanContext = new ScanContext()
+    ScanContext scanContext = ScanContext.builder()
         .project(tableSchema)
-        .fromProperties(options);
+        .fromProperties(options)
+        .build();
     return run(scanContext);
   }
 
   @Override
   protected List<Row> run() throws Exception {
     Schema tableSchema = catalog.loadTable(tableIdentifier).schema();
-    ScanContext scanContext = new ScanContext()
-        .project(tableSchema);
+    ScanContext scanContext = ScanContext.builder()
+        .project(tableSchema)
+        .build();
     return run(scanContext);
   }
 
@@ -106,7 +110,7 @@ public class TestIcebergSourceBounded extends TestFlinkScan {
       tableLoader.open();
       table = tableLoader.loadTable();
     }
-    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
+    final RowType rowType = FlinkSchemaUtil.convert(scanContext.project());
 
     final DataStream<Row> stream = env.fromSource(
         IcebergSource.<RowData>builder()

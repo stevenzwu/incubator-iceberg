@@ -97,9 +97,10 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
     dataAppender.appendToTable(batch1);
     final long snapshotId1 = table.currentSnapshot().snapshotId();
 
-    final ScanContext scanContext = new ScanContext()
-        .project(table.schema());
-    final RowType rowType = FlinkSchemaUtil.convert(scanContext.projectedSchema());
+    final ScanContext scanContext = ScanContext.builder()
+        .project(table.schema())
+        .build();
+    final RowType rowType = FlinkSchemaUtil.convert(scanContext.project());
 
     // start the source and collect output
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();

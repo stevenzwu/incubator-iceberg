@@ -22,7 +22,6 @@ package org.apache.iceberg.flink.source.reader;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +50,7 @@ import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Assert;
@@ -67,10 +67,11 @@ public abstract class BulkFormatTestBase {
   @ClassRule
   public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
-  protected static final ScanContext scanContext = new ScanContext()
-      .project(TestFixtures.SCHEMA);
+  protected static final ScanContext scanContext = ScanContext.builder()
+      .project(TestFixtures.SCHEMA)
+      .build();
   protected static final RowType rowType = FlinkSchemaUtil
-      .convert(scanContext.projectedSchema());
+      .convert(scanContext.project());
   private static final DataStructureConverter<Object, Object> rowDataConverter = DataStructureConverters.getConverter(
       TypeConversions.fromLogicalToDataType(rowType));
   private static final org.apache.flink.configuration.Configuration flinkConfig =
@@ -133,7 +134,7 @@ public abstract class BulkFormatTestBase {
         }
       }
     }
-    Assert.assertThat(Arrays.asList(rearrangedFiles), CoreMatchers.everyItem(CoreMatchers.notNullValue()));
+    Assert.assertThat(Lists.newArrayList(rearrangedFiles), CoreMatchers.everyItem(CoreMatchers.notNullValue()));
     CombinedScanTask rearrangedCombinedTask = new BaseCombinedScanTask(rearrangedFiles);
     return IcebergSourceSplit.fromCombinedScanTask(rearrangedCombinedTask);
   }

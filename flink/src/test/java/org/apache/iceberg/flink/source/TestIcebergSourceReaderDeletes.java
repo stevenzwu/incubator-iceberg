@@ -72,8 +72,9 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
 
     try (TableLoader tableLoader = hadoopTableLoader) {
 
-      final ScanContext scanContext = new ScanContext()
-          .project(projected);
+      final ScanContext scanContext = ScanContext.builder()
+          .project(projected)
+          .build();
       tableLoader.open();
       final Table table = tableLoader.loadTable();
       final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
