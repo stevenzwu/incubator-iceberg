@@ -85,7 +85,7 @@ public class RowDataIteratorBulkFormat implements BulkFormat<RowData, IcebergSou
         tableInfo.fileIO(),
         tableInfo.encryptionManager(),
         tableInfo.schema(),
-        scanContext.projectedSchema(),
+        scanContext.project(),
         scanContext.nameMapping(),
         scanContext.caseSensitive());
     if (split.checkpointedPosition() != null) {

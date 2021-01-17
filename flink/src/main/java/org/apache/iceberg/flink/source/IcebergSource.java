@@ -155,7 +155,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     @Nullable private ContinuousEnumeratorConfig continuousEnumeratorConfig;
 
     Builder() {
-      this.scanContext = new ScanContext();
+      this.scanContext = ScanContext.builder().build();
     }
 
     public Builder<T> tableLoader(TableLoader loader) {

@@ -81,8 +81,7 @@ public class ContinuousSplitPlannerImpl implements ContinuousSplitPlanner {
         splits = Collections.emptyList();
       } else {
         final ScanContext incrementalScan = scanContext
-            .startSnapshotId(startSnapshotId)
-            .endSnapshotId(endSnapshotId);
+            .copyWithAppendsBetween(startSnapshotId, endSnapshotId);
         splits = FlinkSplitGenerator.planIcebergSourceSplits(table, incrementalScan);
         LOG.info("Discovered {} splits from increment scan: startSnapshotId = {}, endSnapshotId = {}",
             splits.size(), lastEnumeratedSnapshotId.get(), endSnapshotId);

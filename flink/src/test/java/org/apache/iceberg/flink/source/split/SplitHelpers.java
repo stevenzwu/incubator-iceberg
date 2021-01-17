@@ -78,7 +78,7 @@ public class SplitHelpers {
         dataAppender.appendToTable(records);
       }
 
-      final ScanContext scanContext = new ScanContext();
+      final ScanContext scanContext = ScanContext.builder().build();
       final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
       return splits.stream()
           .flatMap(split -> {

@@ -48,8 +48,9 @@ public class TestContinuousSplitPlannerImpl {
   public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
   private static final FileFormat fileFormat = FileFormat.PARQUET;
-  private static final ScanContext scanContext = new ScanContext()
-      .project(TestFixtures.SCHEMA);
+  private static final ScanContext scanContext = ScanContext.builder()
+      .project(TestFixtures.SCHEMA)
+      .build();
   private static final AtomicLong randomSeed = new AtomicLong();
 
   private String warehouse;
