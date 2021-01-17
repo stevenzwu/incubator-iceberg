@@ -26,12 +26,15 @@ public class SplitPlanningResult {
 
   private final Collection<IcebergSourceSplit> splits;
   private final long lastEnumeratedSnapshotId;
+  private final long lastEnumeratedSnapshotTimestampMs;
 
   public SplitPlanningResult(
       Collection<IcebergSourceSplit> splits,
-      long lastEnumeratedSnapshotId) {
+      long lastEnumeratedSnapshotId,
+      long lastEnumeratedSnapshotTimestampMs) {
     this.splits = splits;
     this.lastEnumeratedSnapshotId = lastEnumeratedSnapshotId;
+    this.lastEnumeratedSnapshotTimestampMs = lastEnumeratedSnapshotTimestampMs;
   }
 
   public Collection<IcebergSourceSplit> splits() {
@@ -40,5 +43,9 @@ public class SplitPlanningResult {
 
   public long lastEnumeratedSnapshotId() {
     return lastEnumeratedSnapshotId;
+  }
+
+  public long lastEnumeratedSnapshotTimestampMs() {
+    return lastEnumeratedSnapshotTimestampMs;
   }
 }

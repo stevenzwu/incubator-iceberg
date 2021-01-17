@@ -28,7 +28,7 @@ import org.apache.iceberg.relocated.com.google.common.base.MoreObjects;
 /**
  * Settings for continuous split enumeration
  */
-public class ContinuousEnumeratorConfig implements Serializable {
+public class IcebergEnumeratorConfig implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
@@ -62,20 +62,28 @@ public class ContinuousEnumeratorConfig implements Serializable {
     SPECIFIC_START_SNAPSHOT_TIMESTAMP
   }
 
-  private final Duration discoveryInterval;
+  private final Duration metricRefreshInterval;
+
+  // for continuous enumerator
+  @Nullable private final Duration splitDiscoveryInterval;
   private final StartingStrategy startingStrategy;
   @Nullable private final Long startSnapshotId;
   @Nullable private final Long startSnapshotTimeMs;
 
-  private ContinuousEnumeratorConfig(Builder builder) {
-    this.discoveryInterval = builder.discoveryInterval;
+  private IcebergEnumeratorConfig(Builder builder) {
+    this.metricRefreshInterval = builder.metricRefreshInterval;
+    this.splitDiscoveryInterval = builder.splitDiscoveryInterval;
     this.startingStrategy = builder.startingStrategy;
     this.startSnapshotId = builder.startSnapshotId;
     this.startSnapshotTimeMs = builder.startSnapshotTimeMs;
   }
 
-  public Duration discoveryInterval() {
-    return discoveryInterval;
+  public Duration metricRefreshInterval() {
+    return metricRefreshInterval;
+  }
+
+  public Duration splitDiscoveryInterval() {
+    return splitDiscoveryInterval;
   }
 
   public StartingStrategy startingStrategy() {
@@ -93,9 +101,10 @@ public class ContinuousEnumeratorConfig implements Serializable {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("discoveryInterval", discoveryInterval)
+        .add("splitDiscoveryInterval", splitDiscoveryInterval)
         .add("startingStrategy", startingStrategy)
         .add("startSnapshotId", startSnapshotId)
+        .add("startSnapshotTimeMs", startSnapshotTimeMs)
         .toString();
   }
 
@@ -104,9 +113,9 @@ public class ContinuousEnumeratorConfig implements Serializable {
   }
 
   public static class Builder {
-    // required
-    private Duration discoveryInterval;
-    // optional
+
+    private Duration metricRefreshInterval = Duration.ofMinutes(1);
+    private Duration splitDiscoveryInterval;
     private StartingStrategy startingStrategy = StartingStrategy.LATEST_SNAPSHOT;
     private Long startSnapshotId;
     private Long startSnapshotTimeMs;
@@ -114,8 +123,19 @@ public class ContinuousEnumeratorConfig implements Serializable {
     private Builder() {
     }
 
-    public Builder discoveryInterval(Duration interval) {
-      this.discoveryInterval = interval;
+    /**
+     * Default is 1 minute
+     */
+    public Builder metricRefreshInterval(Duration interval) {
+      this.metricRefreshInterval = interval;
+      return this;
+    }
+
+    /**
+     * This is required for continuous enumerator in streaming read
+     */
+    public Builder splitDiscoveryInterval(Duration interval) {
+      this.splitDiscoveryInterval = interval;
       return this;
     }
 
@@ -134,25 +154,26 @@ public class ContinuousEnumeratorConfig implements Serializable {
       return this;
     }
 
-    public ContinuousEnumeratorConfig build() {
+    public IcebergEnumeratorConfig build() {
       checkRequired();
-      return new ContinuousEnumeratorConfig(this);
+      return new IcebergEnumeratorConfig(this);
     }
 
     private void checkRequired() {
-      Preconditions.checkNotNull(discoveryInterval,
-          "discoveryInterval can't be null");
-      switch (startingStrategy) {
-        case SPECIFIC_START_SNAPSHOT_ID:
-          Preconditions.checkNotNull(startSnapshotId,
-              "Must set startSnapshotId with starting strategy: " + startingStrategy);
-          break;
-        case SPECIFIC_START_SNAPSHOT_TIMESTAMP:
-          Preconditions.checkNotNull(startSnapshotTimeMs,
-              "Must set startSnapshotTimeMs with starting strategy: " + startingStrategy);
-          break;
-        default:
-          break;
+      // continuous enumerator
+      if (splitDiscoveryInterval != null) {
+        switch (startingStrategy) {
+          case SPECIFIC_START_SNAPSHOT_ID:
+            Preconditions.checkNotNull(startSnapshotId,
+                "Must set startSnapshotId with starting strategy: " + startingStrategy);
+            break;
+          case SPECIFIC_START_SNAPSHOT_TIMESTAMP:
+            Preconditions.checkNotNull(startSnapshotTimeMs,
+                "Must set startSnapshotTimeMs with starting strategy: " + startingStrategy);
+            break;
+          default:
+            break;
+        }
       }
     }
   }

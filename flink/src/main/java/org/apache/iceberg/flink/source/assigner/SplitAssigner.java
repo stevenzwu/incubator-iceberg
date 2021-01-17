@@ -29,6 +29,7 @@ import org.apache.iceberg.flink.source.split.IcebergSourceSplitStatus;
 
 /**
  * Enumerator should call the assigner APIs from the coordinator thread.
+ * This is to simplify the thread safety for assigner implementation.
  */
 public interface SplitAssigner extends AutoCloseable {
 

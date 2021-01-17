@@ -32,9 +32,10 @@ public class StaticIcebergEnumerator extends AbstractIcebergEnumerator {
   private final SplitAssigner assigner;
 
   public StaticIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      SplitAssigner assigner) {
-    super(enumContext, assigner);
+      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext,
+      SplitAssigner assigner,
+      IcebergEnumeratorConfig enumeratorConfig) {
+    super(enumeratorContext, assigner, enumeratorConfig);
     this.assigner = assigner;
   }
 

@@ -91,77 +91,77 @@ public class TestContinuousSplitPlannerImplStartStrategy {
 
   @Test
   public void testStartSnapshotIdForTableScanThenIncrementalStrategy() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot3.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
   @Test
   public void testStartSnapshotIdForLatestSnapshotStrategy() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.LATEST_SNAPSHOT)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.LATEST_SNAPSHOT)
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot3.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
   @Test
   public void testStartSnapshotIdForEarliestSnapshotStrategy() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.EARLIEST_SNAPSHOT)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.EARLIEST_SNAPSHOT)
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot1.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
   @Test
   public void testStartSnapshotIdForSpecificSnapshotIdStrategy() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_ID)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_ID)
         .startSnapshotId(snapshot2.snapshotId())
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot2.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
   @Test
   public void testStartSnapshotIdForSpecificSnapshotTimestampStrategySnapshot2() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
         .startSnapshotTimeMs(snapshot2.timestampMillis())
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot2.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
   @Test
   public void testStartSnapshotIdForSpecificSnapshotTimestampStrategySnapshot2Minus1() {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.SPECIFIC_START_SNAPSHOT_TIMESTAMP)
         .startSnapshotTimeMs(snapshot2.timestampMillis() - 1L)
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);
     Assert.assertEquals(snapshot1.snapshotId(),
-        splitPlanner.getStartSnapshotId(table, config));
+        splitPlanner.getStartSnapshot(table, config).snapshotId());
   }
 
 }

@@ -85,9 +85,9 @@ public class TestContinuousSplitPlannerImpl {
 
   @Test
   public void testContinuousEnumerator() throws Exception {
-    final ContinuousEnumeratorConfig config = ContinuousEnumeratorConfig.builder()
-        .discoveryInterval(Duration.ofMinutes(5L))
-        .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+    final IcebergEnumeratorConfig config = IcebergEnumeratorConfig.builder()
+        .splitDiscoveryInterval(Duration.ofMinutes(5L))
+        .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
         .build();
     final ContinuousSplitPlannerImpl splitPlanner = new ContinuousSplitPlannerImpl(
         table, config, scanContext);

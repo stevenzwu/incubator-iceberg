@@ -33,6 +33,7 @@ import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.iceberg.flink.source.IcebergSourceEvents;
 import org.apache.iceberg.flink.source.assigner.GetSplitResult;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
+import org.apache.iceberg.flink.source.assigner.SplitAssignerStats;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,23 +47,37 @@ abstract class AbstractIcebergEnumerator implements
 
   private static final Logger LOG = LoggerFactory.getLogger(AbstractIcebergEnumerator.class);
 
-  private final SplitEnumeratorContext<IcebergSourceSplit> enumContext;
+  private final SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext;
   private final SplitAssigner assigner;
+  private final IcebergEnumeratorConfig enumeratorConfig;
   private final Map<Integer, String> readersAwaitingSplit;
   private final AtomicReference<CompletableFuture<Void>> availableFuture;
+  private final AtomicReference<SplitAssignerStats> assignerStats;
 
   AbstractIcebergEnumerator(
-      SplitEnumeratorContext<IcebergSourceSplit> enumContext,
-      SplitAssigner assigner) {
-    this.enumContext = enumContext;
+      SplitEnumeratorContext<IcebergSourceSplit> enumeratorContext,
+      SplitAssigner assigner,
+      IcebergEnumeratorConfig enumeratorConfig) {
+    this.enumeratorContext = enumeratorContext;
     this.assigner = assigner;
+    this.enumeratorConfig = enumeratorConfig;
     this.readersAwaitingSplit = new LinkedHashMap<>();
     this.availableFuture = new AtomicReference<>();
+    this.assignerStats = new AtomicReference<>();
   }
 
   @Override
   public void start() {
     assigner.start();
+    enumeratorContext.callAsync(
+        () -> null,
+        this::updateAssignerStats,
+        enumeratorConfig.metricRefreshInterval().toMillis(),
+        enumeratorConfig.metricRefreshInterval().toMillis());
+  }
+
+  private void updateAssignerStats(Void result, Throwable error) {
+    assignerStats.set(assigner.stats());
   }
 
   @Override
@@ -112,7 +127,7 @@ abstract class AbstractIcebergEnumerator implements
       final Map.Entry<Integer, String> nextAwaiting = awaitingReader.next();
       // if the reader that requested another split has failed in the meantime, remove
       // it from the list of waiting readers
-      if (!enumContext.registeredReaders().containsKey(nextAwaiting.getKey())) {
+      if (!enumeratorContext.registeredReaders().containsKey(nextAwaiting.getKey())) {
         awaitingReader.remove();
         continue;
       }
@@ -122,7 +137,7 @@ abstract class AbstractIcebergEnumerator implements
       final GetSplitResult getResult = assigner.getNext(hostname);
       if (getResult.status() == GetSplitResult.Status.AVAILABLE) {
         LOG.info("Assign split to subtask {}: {}", awaitingSubtask, getResult.split());
-        enumContext.assignSplit(getResult.split(), awaitingSubtask);
+        enumeratorContext.assignSplit(getResult.split(), awaitingSubtask);
         awaitingReader.remove();
       } else if (getResult.status() == GetSplitResult.Status.CONSTRAINED) {
         getAvailableFutureIfNeeded();
@@ -133,7 +148,7 @@ abstract class AbstractIcebergEnumerator implements
           break;
         } else {
           LOG.info("No more splits available for subtask {}", awaitingSubtask);
-          enumContext.signalNoMoreSplits(awaitingSubtask);
+          enumeratorContext.signalNoMoreSplits(awaitingSubtask);
           awaitingReader.remove();
         }
       } else {
@@ -159,7 +174,7 @@ abstract class AbstractIcebergEnumerator implements
         // E.g., in event time alignment assigner,
         // watermark advancement from another source may
         // cause the available future to be completed
-        enumContext.runInCoordinatorThread(() -> {
+        enumeratorContext.runInCoordinatorThread(() -> {
           LOG.debug("Executing callback of assignSplits");
           availableFuture.set(null);
           assignSplits();

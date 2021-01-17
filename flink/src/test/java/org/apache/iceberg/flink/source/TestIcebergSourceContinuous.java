@@ -46,7 +46,7 @@ import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.data.RowDataToRowMapper;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
-import org.apache.iceberg.flink.source.enumerator.ContinuousEnumeratorConfig;
+import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorConfig;
 import org.apache.iceberg.flink.source.reader.FlinkBulkFormatAdaptor;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
@@ -106,18 +106,18 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.setParallelism(1);
     final DataStream<Row> stream = env.fromSource(
-        IcebergSource.builder()
+        IcebergSource.<RowData>builder()
             .tableLoader(tableLoader)
             .assignerFactory(new SimpleSplitAssignerFactory())
             .bulkFormat(new FlinkBulkFormatAdaptor<>(ImmutableMap.of(
                 FileFormat.PARQUET,
-                new ParquetColumnarRowInputFormat(new Configuration(),
+                new ParquetColumnarRowInputFormat<>(new Configuration(),
                     rowType, 128, false, true)
                 )))
             .scanContext(scanContext)
-            .continuousEnumSettings(ContinuousEnumeratorConfig.builder()
-                .discoveryInterval(Duration.ofMillis(1000L))
-                .startingStrategy(ContinuousEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
+            .enumeratorConfig(IcebergEnumeratorConfig.builder()
+                .splitDiscoveryInterval(Duration.ofMillis(1000L))
+                .startingStrategy(IcebergEnumeratorConfig.StartingStrategy.TABLE_SCAN_THEN_INCREMENTAL)
                 .build())
             .build(),
         WatermarkStrategy.noWatermarks(),
@@ -125,7 +125,6 @@ public class TestIcebergSourceContinuous extends AbstractTestBase {
         TypeInformation.of(RowData.class))
         .map(new RowDataToRowMapper(rowType));
 
-    // TODO: switch to DataStream#executeAndCollectWithClient() when FLINK-20871 is resolved
     try (CloseableIterator<Row> iter = stream.executeAndCollect(getClass().getSimpleName())) {
 
       final List<Row> result1 = waitForResult(iter, 2);

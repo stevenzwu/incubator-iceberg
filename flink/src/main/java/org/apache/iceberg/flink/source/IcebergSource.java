@@ -36,10 +36,10 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.assigner.SplitAssigner;
 import org.apache.iceberg.flink.source.assigner.SplitAssignerFactory;
-import org.apache.iceberg.flink.source.enumerator.ContinuousEnumeratorConfig;
 import org.apache.iceberg.flink.source.enumerator.ContinuousIcebergEnumerator;
 import org.apache.iceberg.flink.source.enumerator.ContinuousSplitPlanner;
 import org.apache.iceberg.flink.source.enumerator.ContinuousSplitPlannerImpl;
+import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorConfig;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorState;
 import org.apache.iceberg.flink.source.enumerator.IcebergEnumeratorStateSerializer;
 import org.apache.iceberg.flink.source.enumerator.StaticIcebergEnumerator;
@@ -54,17 +54,17 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
   private final ScanContext scanContext;
   private final BulkFormat<T, IcebergSourceSplit> bulkFormat;
   private final SplitAssignerFactory assignerFactory;
-  private final ContinuousEnumeratorConfig continuousEnumeratorConfig;
+  private final IcebergEnumeratorConfig enumeratorConfig;
 
   IcebergSource(
       TableLoader tableLoader,
       ScanContext scanContext,
       BulkFormat<T, IcebergSourceSplit> bulkFormat,
       SplitAssignerFactory assignerFactory,
-      @Nullable ContinuousEnumeratorConfig continuousEnumeratorConfig) {
+      IcebergEnumeratorConfig enumeratorConfig) {
 
     this.tableLoader = tableLoader;
-    this.continuousEnumeratorConfig = continuousEnumeratorConfig;
+    this.enumeratorConfig = enumeratorConfig;
     this.scanContext = scanContext;
     this.bulkFormat = bulkFormat;
     this.assignerFactory = assignerFactory;
@@ -81,7 +81,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
 
   @Override
   public Boundedness getBoundedness() {
-    return continuousEnumeratorConfig == null ?
+    return enumeratorConfig.splitDiscoveryInterval() == null ?
         Boundedness.BOUNDED : Boundedness.CONTINUOUS_UNBOUNDED;
   }
 
@@ -126,15 +126,15 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
     }
 
     final Table table = loadTable(tableLoader);
-    if (continuousEnumeratorConfig == null) {
+    if (enumeratorConfig.splitDiscoveryInterval() == null) {
       final List<IcebergSourceSplit> splits = FlinkSplitGenerator.planIcebergSourceSplits(table, scanContext);
       assigner.onDiscoveredSplits(splits);
-      return new StaticIcebergEnumerator(enumContext, assigner);
+      return new StaticIcebergEnumerator(enumContext, assigner, enumeratorConfig);
     } else {
       final ContinuousSplitPlanner splitPlanner = new ContinuousSplitPlannerImpl(
-          table, continuousEnumeratorConfig, scanContext);
+          table, enumeratorConfig, scanContext);
       return new ContinuousIcebergEnumerator(enumContext, assigner,
-          enumState, continuousEnumeratorConfig, splitPlanner);
+          enumState, enumeratorConfig, splitPlanner);
     }
   }
 
@@ -152,10 +152,11 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
 
     // optional
     private ScanContext scanContext;
-    @Nullable private ContinuousEnumeratorConfig continuousEnumeratorConfig;
+    private IcebergEnumeratorConfig enumeratorConfig;
 
     Builder() {
       this.scanContext = ScanContext.builder().build();
+      this.enumeratorConfig = IcebergEnumeratorConfig.builder().build();
     }
 
     public Builder<T> tableLoader(TableLoader loader) {
@@ -178,8 +179,8 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
       return this;
     }
 
-    public Builder<T> continuousEnumSettings(ContinuousEnumeratorConfig newConfig) {
-      this.continuousEnumeratorConfig = newConfig;
+    public Builder<T> enumeratorConfig(IcebergEnumeratorConfig newConfig) {
+      this.enumeratorConfig = newConfig;
       return this;
     }
 
@@ -190,7 +191,7 @@ public class IcebergSource<T> implements Source<T, IcebergSourceSplit, IcebergEn
           scanContext,
           bulkFormat,
           splitAssignerFactory,
-          continuousEnumeratorConfig);
+          enumeratorConfig);
     }
 
     private void checkRequired() {

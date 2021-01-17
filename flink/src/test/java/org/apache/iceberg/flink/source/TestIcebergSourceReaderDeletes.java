@@ -25,11 +25,11 @@ import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
+import org.apache.flink.util.CloseableIterator;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -39,7 +39,7 @@ import org.apache.iceberg.flink.TableInfo;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.assigner.SimpleSplitAssignerFactory;
 import org.apache.iceberg.flink.source.reader.RowDataIteratorBulkFormat;
-import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
+import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.util.StructLikeSet;
 import org.junit.ClassRule;
 import org.junit.rules.TemporaryFolder;
@@ -69,13 +69,12 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
 
     final String tableLocation = String.format("%s/%s/%s", warehouseLocation, databaseName, tableName);
     final TableLoader hadoopTableLoader = TableLoader.fromHadoopTable(tableLocation);
-
+    hadoopTableLoader.open();
     try (TableLoader tableLoader = hadoopTableLoader) {
 
       final ScanContext scanContext = ScanContext.builder()
           .project(projected)
           .build();
-      tableLoader.open();
       final Table table = tableLoader.loadTable();
       final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
       env.setParallelism(1);
@@ -90,13 +89,17 @@ public class TestIcebergSourceReaderDeletes extends TestFlinkReaderDeletesBase {
           "testBasicRead",
           TypeInformation.of(RowData.class));
 
-      final List<RowData> rowDataList = ImmutableList.copyOf(DataStreamUtils.collect(stream));
-      StructLikeSet set = StructLikeSet.create(projected.asStruct());
-      rowDataList.forEach(rowData -> {
-        RowDataWrapper wrapper = new RowDataWrapper(rowType, projected.asStruct());
-        set.add(wrapper.wrap(rowData));
-      });
-      return set;
+      try (CloseableIterator<RowData> iter = stream.executeAndCollect()) {
+        List<RowData> rowDataList = Lists.newArrayList(iter);
+        StructLikeSet set = StructLikeSet.create(projected.asStruct());
+        rowDataList.forEach(rowData -> {
+          RowDataWrapper wrapper = new RowDataWrapper(rowType, projected.asStruct());
+          set.add(wrapper.wrap(rowData));
+        });
+        return set;
+      } catch (Exception e) {
+        throw new IOException("Failed to collect result", e);
+      }
     }
   }
 
