@@ -46,6 +46,7 @@ import org.apache.iceberg.flink.SimpleDataUtil;
 import org.apache.iceberg.flink.TableLoader;
 import org.apache.iceberg.flink.source.BoundedTestSource;
 import org.apache.iceberg.flink.util.FlinkCompatibilityUtil;
+import org.apache.iceberg.flink.util.MiniClusterTestBase;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.junit.Assert;
@@ -55,7 +56,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
-public class TestFlinkIcebergSink extends AbstractTestBase {
+public class TestFlinkIcebergSink extends MiniClusterTestBase {
   private static final TypeInformation<Row> ROW_TYPE_INFO = new RowTypeInfo(
       SimpleDataUtil.FLINK_SCHEMA.getFieldTypes());
   private static final DataFormatConverters.RowConverter CONVERTER = new DataFormatConverters.RowConverter(
