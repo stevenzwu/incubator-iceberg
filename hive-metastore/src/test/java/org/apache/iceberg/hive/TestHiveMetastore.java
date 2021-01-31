@@ -58,12 +58,12 @@ public class TestHiveMetastore {
 
   // create the metastore handlers based on whether we're working with Hive2 or Hive3 dependencies
   // we need to do this because there is a breaking API change between Hive2 and Hive3
-  private static final DynConstructors.Ctor<HiveMetaStore.HMSHandler> HMS_HANDLER_CTOR = DynConstructors.builder()
+  private final DynConstructors.Ctor<HiveMetaStore.HMSHandler> HMS_HANDLER_CTOR = DynConstructors.builder()
           .impl(HiveMetaStore.HMSHandler.class, String.class, Configuration.class)
           .impl(HiveMetaStore.HMSHandler.class, String.class, HiveConf.class)
           .build();
 
-  private static final DynMethods.StaticMethod GET_BASE_HMS_HANDLER = DynMethods.builder("getProxy")
+  private final DynMethods.StaticMethod GET_BASE_HMS_HANDLER = DynMethods.builder("getProxy")
           .impl(RetryingHMSHandler.class, Configuration.class, IHMSHandler.class, boolean.class)
           .impl(RetryingHMSHandler.class, HiveConf.class, IHMSHandler.class, boolean.class)
           .buildStatic();
@@ -74,7 +74,7 @@ public class TestHiveMetastore {
   // multiple metastore instances within the same JVM, we have to call this cleanup method manually, otherwise
   // threads from our previous test suite will be stuck in the pool with stale config, and keep on being scheduled.
   // This can lead to issues, e.g. accidental Persistence Manager closure by ScheduledQueryExecutionsMaintTask.
-  private static final DynMethods.StaticMethod METASTORE_THREADS_SHUTDOWN = DynMethods.builder("shutdown")
+  private final DynMethods.StaticMethod METASTORE_THREADS_SHUTDOWN = DynMethods.builder("shutdown")
           .impl("org.apache.hadoop.hive.metastore.ThreadPool")
           .orNoop()
           .buildStatic();
