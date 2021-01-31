@@ -39,6 +39,8 @@ public class HadoopFileIO implements FileIO {
 
   public HadoopFileIO(SerializableSupplier<Configuration> hadoopConf) {
     this.hadoopConf = hadoopConf;
+    System.out.println("Tracking hadoop config classloader: " + hadoopConf.get().getClassLoader());
+    new Exception().printStackTrace();
   }
 
   public Configuration conf() {

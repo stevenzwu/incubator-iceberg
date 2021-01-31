@@ -572,6 +572,7 @@ public class Parquet {
         if (file instanceof HadoopInputFile) {
           // remove read properties already set that may conflict with this read
           Configuration conf = new Configuration(((HadoopInputFile) file).getConf());
+          System.out.println("Parquet reader conf classloader: " + conf.getClassLoader());
           for (String property : READ_PROPERTIES_TO_REMOVE) {
             conf.unset(property);
           }
