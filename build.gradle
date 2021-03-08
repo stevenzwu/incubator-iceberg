@@ -323,14 +323,24 @@ project(':iceberg-flink') {
     compileOnly "org.apache.flink:flink-table-api-java-bridge_2.12"
     compileOnly "org.apache.flink:flink-table-planner-blink_2.12"
     compileOnly "org.apache.flink:flink-table-planner_2.12"
+    compileOnly "org.apache.flink:flink-parquet_2.12"
     compileOnly "org.apache.hadoop:hadoop-hdfs"
     compileOnly "org.apache.hadoop:hadoop-common"
     compileOnly("org.apache.hadoop:hadoop-minicluster") {
       exclude group: 'org.apache.avro', module: 'avro'
     }
 
+    // flink-dist doesn't include these two modules (FLINK-20098).
+    // Hence we should add them as compile deps.
+    // This doesn't affect iceberg-flink-runtime shadow jar,
+    // since it excludes all flink jars.
+    compile "org.apache.flink:flink-connector-base"
+    compile "org.apache.flink:flink-connector-files"
+
+    testCompile "org.apache.flink:flink-connector-test-utils"
     testCompile "org.apache.flink:flink-core"
     testCompile "org.apache.flink:flink-runtime_2.12"
+    testCompile "org.apache.flink:flink-streaming-java_2.12"
     testCompile "org.apache.flink:flink-table-planner-blink_2.12"
     testCompile "org.apache.flink:flink-test-utils-junit"
     testCompile("org.apache.flink:flink-test-utils_2.12") {
