@@ -86,8 +86,8 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
   public void seek(CheckpointedPosition checkpointedPosition)  {
     // skip files
     Preconditions.checkArgument(checkpointedPosition.getOffset() < combinedTask.files().size(),
-        String.format("Checkpointed file offset is %d, while CombinedScanTask has %d files",
-            checkpointedPosition.getOffset(), combinedTask.files().size()));
+        "Checkpointed file offset is %d, while CombinedScanTask has %d files",
+            checkpointedPosition.getOffset(), combinedTask.files().size());
     for (long i = 0L; i < checkpointedPosition.getOffset(); ++i) {
       tasks.next();
     }

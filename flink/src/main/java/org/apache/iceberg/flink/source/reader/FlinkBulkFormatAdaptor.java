@@ -56,18 +56,18 @@ public class FlinkBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSpl
         .distinct()
         .collect(Collectors.toList());
     Preconditions.checkArgument(uniqueTypes.size() == 1,
-        "BulkFormats have the different producedType: " + uniqueTypes);
+        "BulkFormats have the different producedType: %s", uniqueTypes);
     producedType = uniqueTypes.get(0);
   }
 
   @Override
   public Reader<T> createReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(bulkFormatProvider, config, split, false);
+    return new ReaderAdaptor<>(bulkFormatProvider, config, split, false);
   }
 
   @Override
   public Reader<T> restoreReader(Configuration config, IcebergSourceSplit split) throws IOException {
-    return new ReaderAdaptor<T>(bulkFormatProvider, config, split, true);
+    return new ReaderAdaptor<>(bulkFormatProvider, config, split, true);
   }
 
   @Override
@@ -105,8 +105,8 @@ public class FlinkBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSpl
       if (position != null) {
         // skip files based on offset in checkpointed position
         Preconditions.checkArgument(position.getOffset() < icebergSplit.task().files().size(),
-            String.format("Checkpointed file offset is %d, while CombinedScanTask has %d files",
-                position.getOffset(), icebergSplit.task().files().size()));
+            "Checkpointed file offset is %d, while CombinedScanTask has %d files",
+                position.getOffset(), icebergSplit.task().files().size());
         for (int i = 0; i < position.getOffset(); ++i) {
           fileIterator.next();
           fileOffset++;
@@ -193,12 +193,12 @@ public class FlinkBulkFormatAdaptor<T> implements BulkFormat<T, IcebergSourceSpl
 
     private final long fileOffset;
     private final RecordIterator<T> iterator;
-    private final MutableRecordAndPosition mutableRecordAndPosition;
+    private final MutableRecordAndPosition<T> mutableRecordAndPosition;
 
     RecordIteratorAdaptor(long fileOffset, RecordIterator<T> iterator) {
       this.fileOffset = fileOffset;
       this.iterator = iterator;
-      this.mutableRecordAndPosition = new MutableRecordAndPosition();
+      this.mutableRecordAndPosition = new MutableRecordAndPosition<>();
     }
 
     @Nullable
