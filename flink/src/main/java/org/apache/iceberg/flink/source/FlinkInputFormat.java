@@ -46,8 +46,9 @@ public class FlinkInputFormat extends RichInputFormat<RowData, FlinkInputSplit> 
   private final FileIO io;
   private final EncryptionManager encryption;
   private final ScanContext context;
+  private final RowDataFileIteratorReader fileIterator;
 
-  private transient RowDataIterator iterator;
+  private transient CombinedScanTaskIterator<RowData> combinedIterator;
   private transient long currentReadCount = 0L;
 
   FlinkInputFormat(TableLoader tableLoader, Schema tableSchema, FileIO io, EncryptionManager encryption,
@@ -57,6 +58,8 @@ public class FlinkInputFormat extends RichInputFormat<RowData, FlinkInputSplit> 
     this.io = io;
     this.encryption = encryption;
     this.context = context;
+    this.fileIterator = new RowDataFileIteratorReader(tableSchema,
+        context.project(), context.nameMapping(), context.caseSensitive());
   }
 
   @VisibleForTesting
@@ -91,9 +94,7 @@ public class FlinkInputFormat extends RichInputFormat<RowData, FlinkInputSplit> 
 
   @Override
   public void open(FlinkInputSplit split) {
-    this.iterator = new RowDataIterator(
-        split.getTask(), io, encryption, tableSchema, context.project(), context.nameMapping(),
-        context.caseSensitive());
+    this.combinedIterator = new CombinedScanTaskIterator(split.getTask(), io, encryption, fileIterator);
   }
 
   @Override
@@ -101,20 +102,20 @@ public class FlinkInputFormat extends RichInputFormat<RowData, FlinkInputSplit> 
     if (context.limit() > 0 && currentReadCount >= context.limit()) {
       return true;
     } else {
-      return !iterator.hasNext();
+      return !combinedIterator.hasNext();
     }
   }
 
   @Override
   public RowData nextRecord(RowData reuse) {
     currentReadCount++;
-    return iterator.next();
+    return combinedIterator.next();
   }
 
   @Override
   public void close() throws IOException {
-    if (iterator != null) {
-      iterator.close();
+    if (combinedIterator != null) {
+      combinedIterator.close();
     }
   }
 }
