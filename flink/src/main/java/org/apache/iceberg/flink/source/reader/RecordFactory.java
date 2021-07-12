@@ -20,14 +20,16 @@
 package org.apache.iceberg.flink.source.reader;
 
 import java.io.Serializable;
-import java.util.function.Function;
-import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
-import org.apache.flink.connector.file.src.util.RecordAndPosition;
-import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.io.CloseableIterator;
 
-@FunctionalInterface
-public interface ReaderFactory<T> extends Serializable, Function<IcebergSourceSplit,
-    CloseableIterator<RecordsWithSplitIds<RecordAndPosition<T>>>> {
+public interface RecordFactory<T> extends Serializable {
+
+  /**
+   * Create a batch of records
+   */
+  T[] createBatch(int batchSize);
+
+  /**
+   * Clone record
+   */
+  void clone(T from, T to);
 }
-
