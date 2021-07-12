@@ -27,7 +27,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.source.reader.RecordsWithSplitIds;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitsChange;
-import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.slf4j.Logger;
@@ -87,7 +86,6 @@ public class IcebergSourceSplitReader<T> implements SplitReader<RecordAndPositio
       throw new IOException("No split remaining");
     }
     currentSplitId = nextSplit.splitId();
-    final CheckpointedPosition position = nextSplit.checkpointedPosition();
     currentReader = readerFactory.create(config, nextSplit);
   }
 

@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.flink.connector.file.src.util.RecordAndPosition;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.conversion.DataStructureConverter;
@@ -45,6 +44,7 @@ import org.apache.iceberg.flink.HadoopTableResource;
 import org.apache.iceberg.flink.TestFixtures;
 import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.source.FlinkSplitGenerator;
+import org.apache.iceberg.flink.source.Position;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
@@ -154,7 +154,7 @@ public abstract class ReaderFactoryTestBase {
   public void testCheckpointedPositionBeforeFirstFile() throws IOException {
     final IcebergSourceSplit split = new IcebergSourceSplit(
         icebergSplit.task(),
-        new CheckpointedPosition(0L, 0L));
+        new Position(0L, 0L));
     final ReaderFactory.Reader<RowData> reader = getReaderFactory().create(flinkConfig, split);
 
     final ReaderFactory.RecordIterator<RowData> iter0 = reader.readBatch();
@@ -174,7 +174,7 @@ public abstract class ReaderFactoryTestBase {
   public void testCheckpointedPositionMiddleFirstFile() throws IOException {
     final IcebergSourceSplit split = new IcebergSourceSplit(
         icebergSplit.task(),
-        new CheckpointedPosition(0L, 1L));
+        new Position(0L, 1L));
     final ReaderFactory.Reader<RowData> reader = getReaderFactory().create(flinkConfig, split);
 
     final ReaderFactory.RecordIterator<RowData> iter0 = reader.readBatch();
@@ -194,7 +194,7 @@ public abstract class ReaderFactoryTestBase {
   public void testCheckpointedPositionAfterFirstFile() throws IOException {
     final IcebergSourceSplit split = new IcebergSourceSplit(
         icebergSplit.task(),
-        new CheckpointedPosition(0L, 2L));
+        new Position(0L, 2L));
     final ReaderFactory.Reader<RowData> reader = getReaderFactory().create(flinkConfig, split);
 
     final ReaderFactory.RecordIterator<RowData> iter1 = reader.readBatch();
@@ -210,7 +210,7 @@ public abstract class ReaderFactoryTestBase {
   public void testCheckpointedPositionBeforeSecondFile() throws IOException {
     final IcebergSourceSplit split = new IcebergSourceSplit(
         icebergSplit.task(),
-        new CheckpointedPosition(1L, 0L));
+        new Position(1L, 0L));
     final ReaderFactory.Reader<RowData> reader = getReaderFactory().create(flinkConfig, split);
 
     final ReaderFactory.RecordIterator<RowData> iter1 = reader.readBatch();
@@ -226,7 +226,7 @@ public abstract class ReaderFactoryTestBase {
   public void testCheckpointedPositionMidSecondFile() throws IOException {
     final IcebergSourceSplit split = new IcebergSourceSplit(
         icebergSplit.task(),
-        new CheckpointedPosition(1L, 1L));
+        new Position(1L, 1L));
     final ReaderFactory.Reader<RowData> reader = getReaderFactory().create(flinkConfig, split);
 
     final ReaderFactory.RecordIterator<RowData> iter1 = reader.readBatch();

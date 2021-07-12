@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Stream;
-import org.apache.flink.connector.file.src.util.CheckpointedPosition;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.encryption.EncryptedFiles;
@@ -70,7 +69,9 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
 
     this.tasks = combinedTask.files().iterator();
     this.currentIterator = CloseableIterator.empty();
-    this.position = new Position();
+    // fileOffset starts at -1 because we started
+    // from an empty iterator that is not from the split files.
+    this.position = new Position(-1L, 0L);
   }
 
   InputFile getInputFile(FileScanTask task) {
@@ -83,25 +84,25 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
     return inputFiles.get(location);
   }
 
-  public void seek(CheckpointedPosition checkpointedPosition)  {
+  public void seek(Position startingPosition) {
     // skip files
-    Preconditions.checkArgument(checkpointedPosition.getOffset() < combinedTask.files().size(),
+    Preconditions.checkArgument(startingPosition.fileOffset() < combinedTask.files().size(),
         "Checkpointed file offset is %d, while CombinedScanTask has %d files",
-            checkpointedPosition.getOffset(), combinedTask.files().size());
-    for (long i = 0L; i < checkpointedPosition.getOffset(); ++i) {
+        startingPosition.fileOffset(), combinedTask.files().size());
+    for (long i = 0L; i < startingPosition.fileOffset(); ++i) {
       tasks.next();
     }
     updateCurrentIterator();
     // skip records within the file
-    for (long i = 0; i < checkpointedPosition.getRecordsAfterOffset(); ++i) {
+    for (long i = 0; i < startingPosition.recordOffset(); ++i) {
       if (hasNext()) {
         next();
       } else {
         throw new IllegalStateException("Not enough records to skip: " +
-            checkpointedPosition.getRecordsAfterOffset());
+            startingPosition.recordOffset());
       }
     }
-    position = new Position(checkpointedPosition);
+    this.position.update(startingPosition.fileOffset(), startingPosition.recordOffset());
   }
 
   @Override
@@ -148,40 +149,5 @@ public abstract class DataIterator<T> implements CloseableIterator<T> {
 
   public Position position() {
     return position;
-  }
-
-  public static class Position {
-
-    private long fileOffset;
-    private long recordOffset;
-
-    Position() {
-      // fileOffset starts at -1 because we started
-      // from an empty iterator that is not from the split files.
-      this.fileOffset = -1L;
-      this.recordOffset = 0L;
-    }
-
-    Position(CheckpointedPosition checkpointedPosition) {
-      this.fileOffset = checkpointedPosition.getOffset();
-      this.recordOffset = checkpointedPosition.getRecordsAfterOffset();
-    }
-
-    void advanceFile() {
-      this.fileOffset += 1;
-      this.recordOffset = 0L;
-    }
-
-    void advanceRecord() {
-      this.recordOffset += 1L;
-    }
-
-    public long fileOffset() {
-      return fileOffset;
-    }
-
-    public long recordOffset() {
-      return recordOffset;
-    }
   }
 }

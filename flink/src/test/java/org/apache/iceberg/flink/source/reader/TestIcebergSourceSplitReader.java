@@ -42,7 +42,6 @@ import org.apache.iceberg.flink.TestHelpers;
 import org.apache.iceberg.flink.source.FlinkSplitGenerator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
-import org.apache.iceberg.flink.source.split.MutableIcebergSourceSplit;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -122,8 +121,7 @@ public class TestIcebergSourceSplitReader {
 
   @Test
   public void testResumeFromEndOfFirstBatch() throws Exception {
-    final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(icebergSplit.task(), 0L, 2L));
+    final IcebergSourceSplit split = IcebergSourceSplit.fromCombinedScanTask(icebergSplit.task(), 0L, 2L);
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(tableResource.table().schema());
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config,
@@ -145,8 +143,7 @@ public class TestIcebergSourceSplitReader {
 
   @Test
   public void testResumeFromStartOfSecondBatch() throws Exception {
-    final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(icebergSplit.task(), 1L, 0L));
+    final IcebergSourceSplit split = IcebergSourceSplit.fromCombinedScanTask(icebergSplit.task(), 1L, 0L);
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(tableResource.table().schema());
     IcebergSourceSplitReader reader = new IcebergSourceSplitReader(config,
@@ -169,8 +166,7 @@ public class TestIcebergSourceSplitReader {
 
   @Test
   public void testResumeFromMiddleOfSecondBatch() throws Exception {
-    final IcebergSourceSplit split = IcebergSourceSplit.fromSplitState(
-        new MutableIcebergSourceSplit(icebergSplit.task(), 1L, 1L));
+    final IcebergSourceSplit split = IcebergSourceSplit.fromCombinedScanTask(icebergSplit.task(), 1L, 1L);
 
     final Configuration config = new Configuration();
     RowType rowType = FlinkSchemaUtil.convert(tableResource.table().schema());

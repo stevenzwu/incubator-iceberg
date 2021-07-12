@@ -32,6 +32,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.flink.FlinkConfigOptions;
 import org.apache.iceberg.flink.data.RowDataUtil;
 import org.apache.iceberg.flink.source.DataIterator;
+import org.apache.iceberg.flink.source.Position;
 import org.apache.iceberg.flink.source.RowDataIterator;
 import org.apache.iceberg.flink.source.ScanContext;
 import org.apache.iceberg.flink.source.split.IcebergSourceSplit;
@@ -65,8 +66,8 @@ public class RowDataIteratorReaderFactory implements ReaderFactory<RowData> {
         scanContext.project(),
         scanContext.nameMapping(),
         scanContext.caseSensitive());
-    if (split.checkpointedPosition() != null) {
-      inputIterator.seek(split.checkpointedPosition());
+    if (split.position() != null) {
+      inputIterator.seek(split.position());
     }
     return new RowDataIteratorReader(config, inputIterator);
   }
@@ -100,7 +101,7 @@ public class RowDataIteratorReaderFactory implements ReaderFactory<RowData> {
       if (num == 0) {
         return null;
       } else {
-        DataIterator.Position position = inputIterator.position();
+        Position position = inputIterator.position();
         return new RecyclableArrayIterator<RowData>(pool.recycler(), batch,
             num, position.fileOffset(), position.recordOffset() - num);
 
